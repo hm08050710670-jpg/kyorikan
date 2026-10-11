@@ -2,11 +2,13 @@
 //   BASE   … KYORI LAB の URL（既定 http://localhost:8765/kyorikan/）
 //   KEISHA … 同じオリジンに置いた PUTT LAB の URL（設定の共有を確認する。無ければ省略）
 //   FONTS  … Google Fonts の代わりに使うローカルCSS（本番と同じフォントで幅を確認する。無ければ代替フォント）
+//   METRO  … GOLF GUTS METRONOME（metronome001）の URL（音の波形が同じかを確認する。無ければ省略）
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const BASE = process.env.BASE || 'http://localhost:8765/kyorikan/';
 const KEISHA = process.env.KEISHA || '';
 const FONTS = process.env.FONTS || '';
+const METRO = process.env.METRO || '';
 const shots = path.join(__dirname, '..', 'shots');
 fs.mkdirSync(shots, { recursive: true });
 const results = [];
@@ -50,16 +52,34 @@ const layoutProblems = (page) => page.evaluate(() => {
     if (FONTS) await ctx.route(/fonts\.googleapis\.com/, r => r.fulfill({ contentType: 'text/css', body: fs.readFileSync(FONTS, 'utf8'), headers: { 'access-control-allow-origin': '*' } }));
     else await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
     await ctx.addInitScript(() => {
-      window.__clicks = [];
-      const origStart = OscillatorNode.prototype.start;
-      OscillatorNode.prototype.start = function (when) { window.__clicks.push({ when, freq: this.frequency.value }); return origStart.apply(this, arguments); };
+      // メトロノームの音の予約を記録する（鳴らす時刻・波形の指紋・つないだ先の音量）
+      window.__clicks = []; window.__osc = 0;
+      const origOsc = OscillatorNode.prototype.start;
+      OscillatorNode.prototype.start = function () { window.__osc++; return origOsc.apply(this, arguments); };
+      const prints = new WeakMap();
+      const print = buf => {
+        if (!prints.has(buf)) { const b = new Uint8Array(buf.getChannelData(0).buffer.slice(0)); let h = 2166136261; for (let i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 16777619) >>> 0; } prints.set(buf, h.toString(16)); }
+        return prints.get(buf);
+      };
+      const origConnect = AudioNode.prototype.connect, origDisc = AudioNode.prototype.disconnect;
+      AudioNode.prototype.connect = function (dest) { this.__dest = dest; return origConnect.apply(this, arguments); };
+      AudioNode.prototype.disconnect = function () { this.__off = true; return origDisc.apply(this, arguments); };
+      const origBuf = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function (when) {
+        if (this.buffer && this.buffer.length > 1) {          // 1サンプルの無音（iPhone の音出し準備）は数えない
+          window.__lastDest = this.__dest;
+          window.__clicks.push({ when, dur: this.buffer.duration, n: this.buffer.length, sr: this.buffer.sampleRate, print: print(this.buffer), gain: this.__dest && this.__dest.gain ? this.__dest.gain.value : null });
+        }
+        return origBuf.apply(this, arguments);
+      };
     });
     return ctx;
   }
-  async function open(ctx, url) {
+  async function open(ctx, url, foreign) {
     const page = await ctx.newPage();
-    page.on('console', m => { if (m.type() === 'error' && !/fonts\.g|ERR_|Failed to load resource/.test(m.text())) errors.push(m.text()); });
-    page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+    // foreign … 比較のために開く別アプリ。そのアプリ自身のエラー（ローカルに無いファイルの読み込み失敗など）は数えない
+    if (!foreign) page.on('console', m => { if (m.type() === 'error' && !/fonts\.g|ERR_|Failed to load resource/.test(m.text())) errors.push(m.text()); });
+    if (!foreign) page.on('pageerror', e => errors.push('pageerror: ' + e.message));
     await page.goto(url || BASE);
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(250);
@@ -271,7 +291,9 @@ const layoutProblems = (page) => page.evaluate(() => {
   const clicks = await page.evaluate(() => window.__clicks);
   const gaps = clicks.slice(1).map((c, i) => c.when - clicks[i].when);
   check('H1 90 BPM（0.667秒間隔）で鳴る', clicks.length >= 4 && gaps.every(g => Math.abs(g - 60 / 90) < 0.002), gaps.map(g => g.toFixed(4)).join(','));
-  check('H2 3拍子（1拍目だけ高い音）', clicks.slice(0, 4).map(c => c.freq > 1500 ? 'H' : 'L').join('') === 'HLLH');
+  // 1拍目は「ピッ」（0.3秒の音）、2・3拍目は「カッ」（0.06秒の音）
+  check('H2 3拍子（1拍目だけ「ピッ」、2・3拍目は「カッ」）', clicks.slice(0, 4).map(c => c.dur > 0.2 ? 'A' : 'c').join('') === 'AccA' && Math.abs(clicks[0].dur - 0.3) < 0.001 && Math.abs(clicks[1].dur - 0.06) < 0.001, clicks.slice(0, 4).map(c => c.dur.toFixed(2)).join(','));
+  check('H2b 音量は metronome001 の初期値（70% = 0.49）、旧来の発振音は使わない', clicks.every(c => Math.abs(c.gain - 0.49) < 1e-6) && (await page.evaluate(() => window.__osc)) === 0, clicks[0].gain);
   check('H3 ボタン表示が停止に変わる', (await txt(page, '#metro-btn')) === '停止する' && (await page.getAttribute('#metro-btn', 'aria-pressed')) === 'true');
   await page.click('#mode-practice');
   check('H4 モードを変えても鳴り続け、練習側のボタンも連動', (await txt(page, '#pr-metro')) === 'メトロノーム ■' && (await page.getAttribute('#pr-metro', 'aria-pressed')) === 'true');
@@ -280,6 +302,24 @@ const layoutProblems = (page) => page.evaluate(() => {
   check('H5 練習側のボタンで停止', (await txt(page, '#metro-btn')) === '再生する' && (await txt(page, '#pr-metro')) === 'メトロノーム ▶');
   const n1 = (await page.evaluate(() => window.__clicks.length)); await page.waitForTimeout(900);
   check('H6 停止後は鳴らない', (await page.evaluate(() => window.__clicks.length)) - n1 <= 1);
+  check('H6b 停止時に、予約済みの音の出力を切っている', await page.evaluate(() => window.__lastDest.__off === true));
+  const kyoriSound = { accent: clicks.find(c => c.dur > 0.2), click: clicks.find(c => c.dur < 0.2) };
+  const n2 = await page.evaluate(() => window.__clicks.length);
+  await page.click('#pr-metro'); await page.waitForTimeout(900);
+  const again = (await page.evaluate(() => window.__clicks)).slice(n2);
+  check('H6c 再開すると1拍目から、新しい出力で鳴る', again.length >= 2 && again[0].dur > 0.2 && again[1].dur < 0.2 && Math.abs(again[1].when - again[0].when - 60 / 90) < 0.002 && Math.abs(again[0].gain - 0.49) < 1e-6 && await page.evaluate(() => window.__lastDest.__off !== true), again.slice(0, 3).map(c => c.dur.toFixed(2)).join(','));
+  await page.click('#pr-metro');
+  if (METRO) {
+    // 同じブラウザで metronome001 を鳴らし、波形（全サンプル）の指紋を比べる
+    const m = await open(ctx, METRO, true);
+    await m.click('#play'); await m.waitForTimeout(1700); await m.click('#play');
+    const mc = await m.evaluate(() => window.__clicks);
+    const ma = mc.find(c => c.dur > 0.2), mk = mc.find(c => c.dur < 0.2);
+    check('H8 「ピッ」の波形が metronome001 と完全に同じ', ma && kyoriSound.accent.print === ma.print && kyoriSound.accent.n === ma.n && kyoriSound.accent.sr === ma.sr, kyoriSound.accent.print + ' / ' + (ma && ma.print) + ' (' + kyoriSound.accent.n + ' samples @' + kyoriSound.accent.sr + 'Hz)');
+    check('H9 「カッ」の波形が metronome001 と完全に同じ', mk && kyoriSound.click.print === mk.print && kyoriSound.click.n === mk.n, kyoriSound.click.print + ' / ' + (mk && mk.print));
+    check('H10 音量・拍の並びも metronome001（BPM 90）と同じ', Math.abs(ma.gain - kyoriSound.accent.gain) < 1e-6 && mc.slice(0, 3).map(c => c.dur > 0.2 ? 'A' : 'c').join('') === 'Acc' && Math.abs(mc[1].when - mc[0].when - 60 / 90) < 0.002, 'gain ' + ma.gain + ' / ' + kyoriSound.accent.gain);
+    await m.close();
+  } else console.log('  (H8〜H10 metronome001 との音の比較は METRO 未指定のため省略)');
   await page.click('#pr-metro'); await page.click('#mn-settings');
   check('H7 登録画面を開くと止まる', (await txt(page, '#metro-btn')) === '再生する');
   await page.click('#set-close');

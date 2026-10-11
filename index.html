@@ -975,11 +975,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Kyori;
 </script>
 <script>
 /* GOLF GUTS KYORI LAB — 画面・保存・メトロノーム
- * 「PUTT LAB と同じ」と書いた部分は、PUTT LAB の app.js から変更せずに持ってきたもの。 */
+ * 「PUTT LAB と同じ」と書いた部分は、PUTT LAB の app.js から変更せずに持ってきたもの。
+ * メトロノームは、拍の時刻と動きの表示が PUTT LAB と同じで、音だけ GOLF GUTS METRONOME（metronome001）と同じ。 */
 (function () {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.0.1';
   var P = PuttPhysics, K = Kyori, YD = P.YD, DEG = Math.PI / 180;
   var $ = function (id) { return document.getElementById(id); };
   var C = {
@@ -1504,9 +1505,81 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Kyori;
     $('pr-metro').setAttribute('aria-label', Metro.playing ? 'メトロノームを停止する' : 'メトロノームを再生する');
     $('pr-metro').setAttribute('aria-pressed', String(Metro.playing));
   }
+  /* ---------- メトロノームの音は GOLF GUTS METRONOME（metronome001）と同じ ----------
+     1拍目「ピッ」、2・3拍目「カッ」。拍の時刻・動きの表示は上の PUTT LAB と同じ仕組みのまま、鳴らす音だけを差し替える。
+     makeRecSounds は metronome001 の index.html から変更せずに持ってきたもの。 */
+  function makeMetroSounds(ctx) {
+    /* ===== ここから metronome001 と同じ ===== */
+    // ===== 動画の音を再現：「ピッ」（1拍目）＋「カッ」（2・3拍目） =====
+    // 録音の分析値：1拍目＝1962Hzの矩形波系トーン（減衰 約40ms）＋クリック、2・3拍目＝約5msの短いクリック
+    function makeRecSounds(sr) {
+      const bp = (x, f0, Q) => {
+        const w = 2 * Math.PI * f0 / sr, al = Math.sin(w) / (2 * Q);
+        const a0 = 1 + al, a1 = -2 * Math.cos(w), a2 = 1 - al, b0 = al, b2 = -al;
+        const y = new Float32Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        for (let i = 0; i < x.length; i++) { const v = x[i]; const o = (b0 * v + b2 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = v; y2 = y1; y1 = o; y[i] = o; }
+        return y;
+      };
+      const lp = (x, fc) => { const a = Math.exp(-2 * Math.PI * fc / sr); let p = 0; for (let i = 0; i < x.length; i++) { p = (1 - a) * x[i] + a * p; x[i] = p; } return x; };
+      // クリック（毎回まったく同じ波形になるよう固定シードのノイズ）
+      const nC = Math.round(0.06 * sr), click = new Float32Array(nC);
+      let s = 7; const nz = new Float32Array(nC);
+      for (let i = 0; i < nC; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; nz[i] = s / 0x3fffffff - 1; }
+      const nf = bp(nz, 2000, 0.45);
+      const modes = [[1144, .7, 0], [1239, 1, 1.0], [1372, .8, 2.0], [2563, .9, .5], [2621, .7, 2.5], [850, .35, .3]];
+      for (let i = 0; i < nC; i++) {
+        const t = i / sr; let v = 0;
+        if (t < 0.04) {
+          const e = Math.exp(-t / 0.0032);
+          for (const [f, a, ph] of modes) v += a * Math.sin(2 * Math.PI * f * t + ph) * e;
+          v += 3 * nf[i] * Math.exp(-t / 0.002);
+        }
+        v += 0.09 * Math.sin(2 * Math.PI * 1239 * t) * Math.exp(-t / 0.016);
+        click[i] = v;
+      }
+      lp(click, 9000);
+      // 1拍目のトーン
+      const nT = Math.round(0.3 * sr), accent = new Float32Array(nT);
+      const harm = [[1, 1], [3, .3], [5, .15], [7, .114], [9, .067]];
+      for (let i = 0; i < nT; i++) {
+        const t = i / sr; let v = 0;
+        for (const [k, g] of harm) v += g * Math.sin(2 * Math.PI * 1962 * k * t);
+        accent[i] = 0.4 * v * Math.min(t / 0.0008, 1) * Math.exp(-t / 0.04) + (i < nC ? click[i] : 0);
+      }
+      // 音量をそろえる（1拍目のピークを 0.9 に）
+      let pk = 0; for (const v of accent) pk = Math.max(pk, Math.abs(v));
+      const k = 0.9 / pk;
+      for (let i = 0; i < nT; i++) accent[i] *= k;
+      for (let i = 0; i < nC; i++) click[i] *= k;
+      const clickOnly = click.map(v => v * 0.73);   // 録音では2・3拍目が1拍目より約3dB小さい
+      // 始まりと終わりをなめらかに
+      for (const arr of [accent, clickOnly]) { const f = Math.round(0.004 * sr); for (let i = 0; i < f; i++) arr[arr.length - 1 - i] *= i / f; }
+      const toBuf = arr => { const b = ctx.createBuffer(1, arr.length, sr); b.getChannelData(0).set(arr); return b; };
+      return { accent: toBuf(accent), click: toBuf(clickOnly) };
+    }
+    /* ===== ここまで metronome001 と同じ ===== */
+    return makeRecSounds(ctx.sampleRate);
+  }
+  var METRO_GAIN = Math.pow(70 / 100, 2);   // metronome001 の初期音量（70%）と同じ大きさ
+  var metroSounds = null, metroMaster = null;
+  Metro.click = function (when, accent) {
+    var c = this.ctx;
+    if (!metroSounds) metroSounds = makeMetroSounds(c);
+    if (!metroMaster) { metroMaster = c.createGain(); metroMaster.gain.value = METRO_GAIN; metroMaster.connect(c.destination); }
+    var s = c.createBufferSource();
+    s.buffer = accent ? metroSounds.accent : metroSounds.click;
+    s.connect(metroMaster); s.start(when);
+  };
+  /* 停止したら、先に予約してあった音も鳴らさない（metronome001 と同じ考え方） */
+  function muteScheduled() {
+    if (!metroMaster) return;
+    try { metroMaster.gain.setValueAtTime(0, Metro.ctx.currentTime); metroMaster.disconnect(); } catch (e) { /* 無視 */ }
+    metroMaster = null;
+  }
+
   var metroStart = Metro.start, metroStop = Metro.stop;
   Metro.start = function () { metroStart.call(Metro); syncMetroButtons(); };
-  Metro.stop = function () { metroStop.call(Metro); syncMetroButtons(); };
+  Metro.stop = function () { if (Metro.playing) muteScheduled(); metroStop.call(Metro); syncMetroButtons(); };
 
   /* =====================================================================
      設定（グリーンの速さ・振り幅の登録）… 画面と保存形式は PUTT LAB と同じ
