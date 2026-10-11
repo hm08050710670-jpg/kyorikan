@@ -1,0 +1,1675 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="パッティングの距離感をつくる練習アプリ。打ちたい距離から必要な振り幅を表示し、練習のズレを記録します。">
+<meta name="theme-color" content="#0a2417">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KYORI LAB">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>GOLF GUTS KYORI LAB</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
+<style>
+/* GOLF GUTS KYORI LAB — デザインは PUTT LAB と共通（濃い芝の地＋蛍光イエロー）。
+   前半は PUTT LAB の style.css と同じ指定、後半「KYORI LAB で追加」がこのアプリ固有の部品。 */
+/* Layout: 縦一列のスコアカード。濃い芝の地に置き、蛍光イエローは「次に押すもの」と「答え」だけに使う。
+   屋外の日差しでも読めるよう、文字は大きく高コントラスト。単一のダークグリーン基調で固定（テーマ切替なし）。 */
+:root {
+  color-scheme: dark;
+  --turf-950: #05150d;
+  --turf-900: #0a2417;
+  --turf-800: #0f3321;
+  --turf-700: #16442d;
+  --turf-600: #21603f;
+  --turf-500: #2f7d52;
+  --chalk: #f3f7ee;
+  --chalk-dim: #abc3b1;
+  --chalk-faint: #7a9a85;
+  --volt: #e4ff1a;
+  --volt-ink: #131f06;
+  --pin: #ff5b3a;
+  --rule: rgba(243, 247, 238, .14);
+  --font-display: "Barlow Condensed", "Arial Narrow", "Hiragino Sans", "Noto Sans CJK JP", sans-serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", Meiryo, sans-serif;
+  --gutter: 18px;
+}
+
+html { height: 100%; box-sizing: border-box; }
+body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--turf-900);
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 500;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
+*, *::before, *::after { box-sizing: border-box; }
+/* ホーム画面から起動したとき、スクロールした中身が時計・電池表示の下に透けないようにする */
+body::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+  height: env(safe-area-inset-top, 0px); background: var(--turf-900);
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+h1, h2, h3, p, ol, dl, dd { margin: 0; }
+ol { padding: 0; list-style: none; }
+svg { display: block; width: 100%; height: auto; }
+svg text { font-family: var(--font-body); }
+:focus-visible { outline: 3px solid var(--volt); outline-offset: 3px; border-radius: 6px; }
+
+#app { min-height: 100%; max-width: 480px; margin: 0 auto; padding-inline: var(--gutter); display: flex; flex-direction: column; }
+
+.screen {
+  flex: 1 0 auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding-block: 18px 22px;
+}
+
+/* ---------- 共通パーツ ---------- */
+.brand {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-weight: 600; font-size: 19px;
+  letter-spacing: .14em; line-height: 1; color: var(--chalk-dim); white-space: nowrap; min-width: 0;
+}
+.brand b { color: var(--chalk); font-weight: 700; }
+.brand::before {
+  content: ""; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--volt); box-shadow: 0 0 0 3px var(--turf-900), 0 0 0 4px var(--volt);
+  margin-right: 4px; flex: none;
+}
+
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .12em; color: var(--volt); }
+.h-big { font-size: clamp(26px, 7.6vw, 32px); line-height: 1.28; font-weight: 900; letter-spacing: .01em; text-wrap: balance; }
+.lead { color: var(--chalk-dim); font-size: 14.5px; }
+.note { color: var(--chalk-faint); font-size: 12.5px; line-height: 1.55; }
+
+.btn-volt {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 62px; padding: 12px 18px;
+  border: 0; border-radius: 16px;
+  background: var(--volt); color: var(--volt-ink);
+  font-weight: 900; font-size: 18px; letter-spacing: .02em;
+  box-shadow: 0 6px 0 #9db300, 0 14px 28px rgba(228, 255, 26, .16);
+  transition: transform .08s, box-shadow .08s;
+}
+.btn-volt:active { transform: translateY(4px); box-shadow: 0 2px 0 #9db300; }
+.btn-volt .arr { font-family: var(--font-display); font-size: 24px; line-height: 1; }
+.btn-ghost {
+  width: 100%; min-height: 50px; padding: 10px 16px;
+  border: 1.5px solid var(--rule); border-radius: 14px; background: transparent;
+  color: var(--chalk); font-weight: 700; font-size: 15px;
+}
+.btn-ghost:active { background: var(--turf-800); }
+.btn-ghost.pri { border-color: var(--volt); color: var(--volt); font-weight: 900; }
+.btn-ghost:disabled { opacity: .4; }
+.btn-text {
+  border: 0; background: none; padding: 10px 6px; min-height: 44px;
+  color: var(--chalk-dim); font-size: 13.5px; font-weight: 700;
+  text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--chalk-faint);
+}
+
+/* ---------- メイン ---------- */
+#scr-main { gap: 14px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.icon-btn {
+  flex: none; width: 46px; height: 46px; display: grid; place-items: center;
+  border: 1.5px solid var(--rule); border-radius: 12px; background: transparent; color: var(--chalk);
+}
+.icon-btn svg { width: 22px; height: 22px; }
+
+.block { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.block > h3 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: .1em; color: var(--chalk-dim); }
+.block > h3 span { font-family: var(--font-display); font-size: 16px; letter-spacing: .08em; color: var(--chalk-faint); }
+
+/* 距離入力 */
+.dist-row { display: flex; align-items: center; gap: 10px; }
+.step-btn {
+  flex: none; width: 54px; height: 54px; border-radius: 14px;
+  border: 1.5px solid var(--rule); background: var(--turf-800);
+  font-family: var(--font-display); font-size: 30px; font-weight: 600; line-height: 1;
+}
+.step-btn:active { background: var(--turf-700); }
+.dist-field { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+.dist-field input {
+  width: 4.2ch; min-width: 0; padding: 0; border: 0; border-bottom: 2px solid var(--chalk-faint); border-radius: 0;
+  background: transparent; text-align: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 58px; line-height: 1.05; font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.dist-field input::-webkit-outer-spin-button, .dist-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.dist-field input:focus { outline: none; border-bottom-color: var(--volt); }
+.dist-field .unit { font-family: var(--font-display); font-weight: 600; font-size: 24px; color: var(--chalk-dim); }
+input[type="range"] { width: 100%; height: 34px; margin: 0; accent-color: var(--volt); }
+.chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.chips.four { grid-template-columns: repeat(4, 1fr); }
+.chip {
+  min-height: 44px; padding: 4px 2px; border-radius: 10px;
+  border: 1.5px solid var(--rule); background: transparent;
+  font-family: var(--font-display); font-weight: 600; font-size: 19px; line-height: 1.1; color: var(--chalk);
+}
+.chip small { display: block; font-family: var(--font-body); font-size: 11px; font-weight: 700; color: var(--chalk-faint); }
+.chip[aria-pressed="true"] { background: var(--chalk); border-color: var(--chalk); color: var(--turf-900); }
+.chip[aria-pressed="true"] small { color: var(--turf-700); }
+
+.caution {
+  margin-top: 8px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--chalk-faint);
+  background: var(--turf-800); font-size: 13.5px; font-weight: 500; line-height: 1.6; color: var(--chalk);
+}
+.caution b { display: block; font-weight: 900; font-size: 14.5px; }
+
+/* 振り幅 */
+.stroke-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.stroke-num b { font-family: var(--font-display); font-weight: 700; font-size: 84px; line-height: .9; font-variant-numeric: tabular-nums; }
+.stroke-num .unit { font-family: var(--font-display); font-weight: 600; font-size: 30px; color: var(--chalk-dim); }
+.stroke-num .sub { flex: 1 1 100%; min-width: 0; font-size: 13px; font-weight: 700; color: var(--chalk-dim); line-height: 1.5; }
+.stroke-rows { display: flex; flex-direction: column; gap: 4px; }
+.stroke-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: end; gap: 6px; }
+.stroke-row .lab { padding-bottom: 4px; line-height: 1.25; }
+.stroke-row .lab span { display: block; font-size: 12.5px; font-weight: 700; color: var(--chalk-dim); }
+.stroke-row .lab b { font-size: 16px; font-weight: 900; white-space: nowrap; }
+.stroke-row .lab b em { font-style: normal; font-family: var(--font-display); font-size: 24px; font-weight: 700; margin: 0 1px; }
+
+/* メトロノーム */
+.metro-stage { border-radius: 18px; background: var(--turf-800); overflow: hidden; transition: background .12s; }
+.metro-stage.hit { background: var(--turf-600); }
+.beats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.beats span {
+  display: grid; place-items: center; height: 58px; border-radius: 14px;
+  background: var(--turf-800); color: var(--chalk-faint);
+  font-family: var(--font-display); font-weight: 700; font-size: 38px; line-height: 1;
+}
+.beats span.on { background: var(--chalk); color: var(--turf-900); }
+.beats span.on.accent { background: var(--volt); color: var(--volt-ink); }
+.phases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.phases span {
+  padding: 7px 0; border-radius: 9px; border: 1.5px solid var(--rule);
+  text-align: center; font-size: 12px; font-weight: 700; color: var(--chalk-faint); line-height: 1.3; white-space: nowrap;
+}
+.phases span small { display: block; font-family: var(--font-display); font-size: 13px; letter-spacing: .04em; }
+.phases span.on { border-color: var(--chalk); color: var(--chalk); background: var(--turf-700); }
+.phases span.on.impact { border-color: var(--volt); color: var(--volt-ink); background: var(--volt); }
+.foot { padding-top: 14px; border-top: 1px solid var(--rule); }
+
+/* ---------- シート（設定・手動入力） ---------- */
+.sheet {
+  position: fixed; inset: 0; z-index: 20; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: var(--turf-900);
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 0 calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+.sheet-in { max-width: 480px; margin: 0 auto; padding-inline: var(--gutter); display: flex; flex-direction: column; gap: 16px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sheet-head h2 { font-size: 21px; font-weight: 900; }
+.sheet h3.sec { font-size: 16px; font-weight: 900; }
+.sheet .block { gap: 10px; }
+.sheet p { font-size: 13.5px; color: var(--chalk-dim); }
+.sheet ol.how { display: flex; flex-direction: column; gap: 3px; padding-left: 1.4em; list-style: decimal; font-size: 13.5px; color: var(--chalk-dim); }
+.status { padding: 10px 14px; border-radius: 12px; background: var(--turf-800); font-size: 13.5px; font-weight: 700; color: var(--chalk); }
+.status small { display: block; font-weight: 500; color: var(--chalk-dim); font-size: 12.5px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.field-head label { font-size: 13px; font-weight: 700; color: var(--chalk-dim); letter-spacing: .06em; }
+.field-head output { font-size: 21px; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.range-ends { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--chalk-faint); margin-top: -6px; }
+
+.cal-grid { display: grid; grid-template-columns: 62px repeat(3, minmax(0, 1fr)) 58px; gap: 6px; align-items: center; }
+.cal-grid .hd { font-size: 11.5px; font-weight: 700; color: var(--chalk-faint); text-align: center; }
+.cal-grid .cm { font-family: var(--font-display); font-weight: 700; font-size: 22px; white-space: nowrap; }
+.cal-grid .cm small { font-size: 14px; color: var(--chalk-dim); margin-left: 1px; }
+.cal-grid input {
+  width: 100%; min-width: 0; height: 46px; padding: 0 4px; border-radius: 10px;
+  border: 1.5px solid var(--rule); background: var(--turf-800); text-align: center;
+  font-family: var(--font-display); font-weight: 600; font-size: 21px; font-variant-numeric: tabular-nums;
+}
+.cal-grid input:focus { outline: none; border-color: var(--volt); }
+.cal-grid .avg { text-align: right; font-family: var(--font-display); font-weight: 700; font-size: 19px; color: var(--volt); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.toast {
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 12px); transform: translateX(-50%);
+  z-index: 40; width: max-content; max-width: min(92vw, 440px); padding: 12px 18px; border-radius: 12px;
+  background: var(--chalk); color: var(--turf-900); font-size: 14px; font-weight: 700; line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
+}
+
+/* ====================================================================
+   KYORI LAB で追加
+   ==================================================================== */
+/* hidden 属性は、display を指定した部品（.mode や .block など）でも必ず隠す */
+[hidden] { display: none !important; }
+.mode { display: flex; flex-direction: column; gap: 14px; }
+
+/* モード切り替え（調べる／練習する） */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--turf-800); }
+.seg button {
+  min-width: 0; min-height: 46px; padding: 6px 4px; border: 0; border-radius: 10px; background: transparent;
+  color: var(--chalk-dim); font-weight: 900; font-size: 15px; line-height: 1.2;
+}
+.seg button[aria-pressed="true"] { background: var(--chalk); color: var(--turf-900); }
+
+/* 答え（必要な振り幅）は蛍光イエロー */
+.stroke-num.answer b { color: var(--volt); }
+.dist-field .num {
+  min-width: 2.2ch; text-align: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 58px; line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+.dist-field input::placeholder { color: var(--chalk-faint); opacity: .7; }
+.caution + .caution, .note + .caution, .caution + .note { margin-top: 8px; }
+#st-warn:empty, #pr-warn:empty, #lg-advice:empty { display: none; }
+#st-warn .caution, #pr-warn .caution, #lg-advice .caution { margin-top: 0; }
+#st-warn, #pr-warn { display: flex; flex-direction: column; gap: 8px; }
+
+/* 練習：お題に対する振り幅（1行にまとめる） */
+.pr-stroke { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 14px; background: var(--turf-800); }
+.pr-stroke-num { flex: none; }
+.pr-stroke-num span { display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--chalk-dim); white-space: nowrap; }
+.pr-stroke-num p { display: flex; align-items: baseline; gap: 4px; }
+.pr-stroke-num b { font-family: var(--font-display); font-weight: 700; font-size: 60px; line-height: .95; color: var(--volt); font-variant-numeric: tabular-nums; }
+.pr-stroke-num i { font-style: normal; font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--chalk-dim); }
+.pr-items { flex: 1 0 auto; margin: 0; padding: 0 0 0 14px; list-style: none; border-left: 1px solid var(--rule); display: flex; flex-direction: column; gap: 1px; }
+.pr-items li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--chalk-dim); white-space: nowrap; }
+.pr-items li b { font-size: 14px; font-weight: 900; color: var(--chalk); }
+.pr-items li b em { font-style: normal; font-family: var(--font-display); font-size: 20px; font-weight: 700; margin: 0 1px; }
+
+#pr-block .row2 .btn-ghost { padding-inline: 6px; font-size: 14.5px; white-space: nowrap; }
+
+/* 練習：結果 */
+.verdict { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 16px; background: var(--turf-800); }
+.verdict .pair { overflow-wrap: anywhere; font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--chalk-dim); }
+.verdict .head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; }
+.verdict .head b { font-family: var(--font-display); font-weight: 700; font-size: 68px; line-height: .95; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.verdict .head b small { font-size: 26px; font-weight: 600; color: var(--chalk-dim); margin-left: 4px; }
+.verdict .head .word { font-size: 24px; font-weight: 900; white-space: nowrap; }
+.verdict.good .head b, .verdict.good .head .word { color: var(--volt); }
+.verdict .why { font-size: 14px; font-weight: 700; color: var(--chalk); }
+.verdict .trend { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--chalk-dim); }
+
+#lg-body { display: flex; flex-direction: column; gap: 16px; }
+
+/* Webフォントが読み込めず代わりの（幅の広い）フォントになっても、はみ出さないための調整 */
+.cal-grid { grid-template-columns: 62px repeat(3, minmax(0, 1fr)) minmax(58px, auto); }
+.stroke-rows.tight .stroke-row .lab span { font-size: 11px; }
+.stroke-rows.tight .stroke-row .lab b { font-size: 12.5px; }
+.stroke-rows.tight .stroke-row .lab b em { font-size: 17px; }
+@media (max-width: 374px) { .brand { font-size: 17.5px; } }
+
+/* 記録：数字のタイル */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { min-width: 0; padding: 11px 13px; border-radius: 12px; background: var(--turf-800); }
+.tile span { display: block; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--chalk-dim); }
+.tile b { display: block; font-family: var(--font-display); font-weight: 700; font-size: 38px; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tile b.jp { font-family: var(--font-body); font-weight: 900; font-size: 21px; line-height: 2; }
+.tile b i { font-style: normal; font-size: 19px; font-weight: 600; color: var(--chalk-dim); margin-left: 2px; }
+.tile small { display: block; font-size: 12px; font-weight: 700; line-height: 1.45; color: var(--chalk-faint); }
+.tile.lead { grid-column: 1 / -1; }
+.tile.lead b { font-size: 54px; color: var(--volt); }
+
+/* 記録：10球ごとのグラフ */
+.chart { border-radius: 14px; background: var(--turf-800); padding: 10px 8px 6px; }
+.chart .bar { cursor: pointer; }
+.sheet .chart-empty { padding: 18px 8px; text-align: center; }
+
+/* 記録：距離ごとの傾向 */
+.bands { display: flex; flex-direction: column; border-top: 1px solid var(--rule); }
+.band { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 10px; padding: 10px 2px; border-bottom: 1px solid var(--rule); }
+.band dt, .band .nm { font-size: 14.5px; font-weight: 900; }
+.band .nm small { margin-left: 8px; font-size: 12px; font-weight: 700; color: var(--chalk-faint); }
+.band .v { text-align: right; font-family: var(--font-display); font-weight: 700; font-size: 24px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.band .v i { font-style: normal; font-size: 15px; color: var(--chalk-dim); }
+.band .d { grid-column: 1 / -1; font-size: 12.5px; font-weight: 700; color: var(--chalk-dim); }
+
+/* 記録：一覧 */
+.log-list { display: flex; flex-direction: column; }
+.log-day { padding: 12px 2px 4px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--chalk-faint); border-bottom: 1px solid var(--rule); }
+.log-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 44px; align-items: center; gap: 6px; padding: 7px 0 7px 2px; border-bottom: 1px solid var(--rule); }
+.log-row .main { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.log-row .main i { font-style: normal; color: var(--chalk-faint); margin: 0 4px; }
+.log-row .sub { font-size: 12px; font-weight: 700; color: var(--chalk-faint); line-height: 1.4; }
+.log-row .dev { text-align: right; line-height: 1.15; }
+.log-row .dev b { display: block; font-family: var(--font-display); font-weight: 700; font-size: 23px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.log-row .dev span { font-size: 11.5px; font-weight: 700; color: var(--chalk-dim); white-space: nowrap; }
+.log-row.good .dev b { color: var(--volt); }
+.log-row .del {
+  width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 10px; background: none; color: var(--chalk-faint); font-size: 12.5px; font-weight: 900;
+}
+.log-row .del svg { width: 18px; height: 18px; }
+.log-row .del.armed, .btn-ghost.armed { background: rgba(255, 91, 58, .14); color: var(--chalk); border-color: var(--pin); }
+.log-row .del.armed { outline: 1.5px solid var(--pin); outline-offset: -1.5px; }
+
+.foot .ver { display: block; margin-top: 6px; font-family: var(--font-display); letter-spacing: .1em; font-size: 12.5px; }
+#store-note:not(:empty) { display: block; margin-top: 6px; color: var(--chalk); }
+
+@media (max-width: 350px) {
+  :root { --gutter: 16px; }
+  .stroke-row { grid-template-columns: 88px minmax(0, 1fr); }
+  .chip { font-size: 17px; }
+  .brand { font-size: 16.5px; letter-spacing: .1em; gap: 6px; }
+  .btn-volt { font-size: 15.5px; padding-inline: 10px; gap: 8px; }
+  .dist-field input, .dist-field .num { font-size: 46px; }
+  .step-btn { width: 48px; height: 48px; }
+  .phases { gap: 4px; }
+  .phases span { font-size: 11px; }
+  .seg button { font-size: 13.5px; }
+  #pr-block .row2 .btn-ghost { font-size: 13px; padding-inline: 2px; }
+  #pr-block .row2 { gap: 8px; }
+  .pr-stroke { gap: 10px; padding-inline: 12px; }
+  .pr-stroke-num b { font-size: 50px; }
+  .pr-items { padding-left: 10px; }
+  .pr-items li { font-size: 11.5px; }
+  .pr-items li b em { font-size: 18px; }
+  .verdict .head b { font-size: 56px; }
+  .verdict .head .word { font-size: 21px; }
+  .tile b { font-size: 32px; }
+  .tile.lead b { font-size: 46px; }
+  .tile b.jp { font-size: 17px; line-height: 2.2; }
+  .log-row .main { font-size: 14.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-volt, .metro-stage { transition: none; }
+}
+</style>
+
+<div id="app">
+  <section class="screen" id="scr-main">
+    <div class="topbar">
+      <header class="brand">GOLF GUTS <b>KYORI LAB</b></header>
+      <button class="icon-btn" id="mn-settings" type="button" aria-label="グリーンの速さと振り幅の登録を開く">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
+      </button>
+    </div>
+
+    <div class="seg" role="group" aria-label="モードの切り替え">
+      <button id="mode-find" type="button" aria-pressed="true">振り幅を調べる</button>
+      <button id="mode-practice" type="button" aria-pressed="false">練習する</button>
+    </div>
+
+    <!-- ===== 振り幅を調べる ===== -->
+    <div class="mode" id="find-wrap">
+      <h1 class="h-big">打ちたい距離は？</h1>
+
+      <section class="block" aria-labelledby="h-dist">
+        <h3 id="h-dist">ボールを転がす距離<span id="dist-m"></span></h3>
+        <div class="dist-row">
+          <button class="step-btn" id="dist-minus" type="button" aria-label="0.5ヤード短く">−</button>
+          <div class="dist-field">
+            <input id="dist-num" type="number" inputmode="decimal" min="0.5" max="20" step="0.5" value="3" aria-labelledby="h-dist">
+            <span class="unit">yd</span>
+          </div>
+          <button class="step-btn" id="dist-plus" type="button" aria-label="0.5ヤード長く">＋</button>
+        </div>
+        <input id="dist-range" type="range" min="0.5" max="20" step="0.5" value="3" aria-labelledby="h-dist">
+        <div class="chips" id="dist-chips" role="group" aria-label="よく使う距離"></div>
+      </section>
+
+      <section class="block" aria-labelledby="h-stroke" id="stroke-block">
+        <h3 id="h-stroke">必要な振り幅<span>アドレス → トップ</span></h3>
+        <div class="stroke-num answer" aria-live="polite">
+          <b id="st-cm">–</b><span class="unit">cm</span>
+          <span class="sub" id="st-sub"></span>
+        </div>
+        <div class="stroke-rows" id="stroke-view"></div>
+        <div id="st-warn"></div>
+        <p class="note" id="st-note"></p>
+        <button class="btn-ghost pri" id="st-register" type="button" hidden>自分の距離感を登録する</button>
+      </section>
+    </div>
+
+    <!-- ===== 練習する ===== -->
+    <div class="mode" id="practice-wrap" hidden>
+      <section class="block" aria-labelledby="h-target" id="pr-block">
+        <h3 id="h-target">① お題の距離を打つ<span id="pr-m"></span></h3>
+        <div class="dist-row">
+          <button class="step-btn" id="pr-t-minus" type="button" aria-label="お題を0.5ヤード短く">−</button>
+          <div class="dist-field">
+            <b class="num" id="pr-target" aria-live="polite">–</b>
+            <span class="unit">yd</span>
+          </div>
+          <button class="step-btn" id="pr-t-plus" type="button" aria-label="お題を0.5ヤード長く">＋</button>
+        </div>
+        <div class="chips four" id="pr-ranges" role="group" aria-label="お題の距離の範囲"></div>
+        <div class="pr-stroke">
+          <div class="pr-stroke-num"><span>必要な振り幅</span><p><b id="pr-cm">–</b><i>cm</i></p></div>
+          <ul class="pr-items" id="pr-items"></ul>
+        </div>
+        <div id="pr-warn"></div>
+        <p class="note" id="pr-note" hidden>仮の基準で表示しています。右上のボタンから自分の距離感を登録すると、あなたに合った振り幅になります。</p>
+        <div class="row2">
+          <button class="btn-ghost" id="pr-reroll" type="button">別のお題にする</button>
+          <button class="btn-ghost" id="pr-metro" type="button" aria-pressed="false" aria-label="メトロノームを再生する">メトロノーム ▶</button>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-actual" id="pr-input-block">
+        <h3 id="h-actual">② 転がった距離を入力<span>実測</span></h3>
+        <div class="dist-row">
+          <button class="step-btn" id="pr-a-minus" type="button" aria-label="0.5ヤード短く">−</button>
+          <div class="dist-field">
+            <input id="pr-actual" type="number" inputmode="decimal" min="0.1" max="60" step="0.1" placeholder="?" aria-labelledby="h-actual">
+            <span class="unit">yd</span>
+          </div>
+          <button class="step-btn" id="pr-a-plus" type="button" aria-label="0.5ヤード長く">＋</button>
+        </div>
+        <button class="btn-text" id="pr-just" type="button">お題どおりに止まった</button>
+        <button class="btn-volt" id="pr-save" type="button">ズレを見て記録する <span class="arr" aria-hidden="true">→</span></button>
+      </section>
+
+      <section class="block" id="pr-result" hidden aria-live="polite">
+        <h3>③ 結果<span>記録しました</span></h3>
+        <div class="verdict" id="pr-verdict"></div>
+        <button class="btn-volt" id="pr-next" type="button">次のお題へ <span class="arr" aria-hidden="true">→</span></button>
+        <button class="btn-text" id="pr-undo" type="button">この記録を取り消して入力し直す</button>
+      </section>
+    </div>
+
+    <!-- ===== 共通：メトロノーム ===== -->
+    <section class="block" aria-labelledby="h-metro" id="metro-block">
+      <h3 id="h-metro">メトロノーム<span>90 BPM・3/4</span></h3>
+      <div class="metro-stage" id="metro-stage" aria-hidden="true"></div>
+      <div class="beats" id="beats" aria-hidden="true"><span>1</span><span>2</span><span>3</span></div>
+      <div class="phases" id="phases" aria-hidden="true">
+        <span><small>1拍目</small>始動</span>
+        <span><small>2拍目</small>トップ</span>
+        <span class="impact"><small>2.5拍</small>インパクト</span>
+        <span><small>3拍目</small>フォロー</span>
+      </div>
+      <button class="btn-volt" id="metro-btn" type="button" aria-pressed="false">再生する</button>
+      <p class="note">1拍目で引き始め、2拍目でトップ、2拍目と3拍目のちょうど真ん中で打ちます。音が出ないときは、スマホの消音モードと音量を確認してください。</p>
+    </section>
+
+    <!-- ===== 共通：記録 ===== -->
+    <section class="block" aria-labelledby="h-log" id="log-block">
+      <h3 id="h-log">練習の記録<span id="log-count"></span></h3>
+      <div class="status" id="log-summary"></div>
+      <button class="btn-ghost" id="log-open" type="button">記録と上達を見る</button>
+    </section>
+
+    <p class="note foot">表示はすべて推定値です。平坦なグリーンでボールが止まるまでの距離を、登録した振り幅と距離の関係から計算しており、傾斜・芝目・打ち方のばらつきによる誤差は含まれません。傾斜のあるラインは GOLF GUTS PUTT LAB で確認してください。<span id="store-note"></span><span class="ver" id="ver"></span></p>
+  </section>
+</div>
+
+<!-- 設定（グリーンの速さ・振り幅の登録） -->
+<div class="sheet" id="sheet-settings" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="sheet-in">
+    <div class="sheet-head">
+      <h2 id="set-title">距離感の登録</h2>
+      <button class="icon-btn" id="set-close" type="button" aria-label="登録を閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <p>ここの設定は GOLF GUTS PUTT LAB と共通です。同じブラウザで開いている場合、どちらで変えても両方に反映されます。</p>
+
+    <section class="block">
+      <h3 class="sec">グリーンの速さ</h3>
+      <p>スティンプメーターの値（ft）です。コースの掲示があればその数字に合わせてください。速いほど、振り幅は小さくなります。</p>
+      <div class="chips four" id="stimp-chips" role="group" aria-label="グリーンの速さ"></div>
+      <div>
+        <div class="field-head"><label for="stimp-range">細かく調整</label><output id="stimp-out" for="stimp-range"></output></div>
+        <input id="stimp-range" type="range" min="7" max="13" step="0.5" value="9">
+      </div>
+    </section>
+
+    <section class="block">
+      <h3 class="sec">振り幅のキャリブレーション</h3>
+      <p>あなたの「振り幅と転がる距離」を登録すると、必要な振り幅があなたの距離感に合います。</p>
+      <ol class="how">
+        <li>平坦な練習グリーンで、上の「グリーンの速さ」をその場所に合わせる</li>
+        <li>メトロノーム（90 BPM・3/4拍子）に合わせて、決めた振り幅で3球打つ</li>
+        <li>転がった距離（yd）を入力して保存する</li>
+      </ol>
+      <div class="cal-grid" id="cal-grid"></div>
+      <p class="note">1つの振り幅だけでも登録できます。10・20・30cm の複数を登録すると、あなた専用の距離曲線になり精度が上がります。</p>
+      <div class="status" id="cal-status"></div>
+      <div class="row2">
+        <button class="btn-ghost" id="cal-clear" type="button">登録を消す</button>
+        <button class="btn-ghost pri" id="cal-save" type="button">保存する</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 記録と上達 -->
+<div class="sheet" id="sheet-log" hidden role="dialog" aria-modal="true" aria-labelledby="lg-title">
+  <div class="sheet-in">
+    <div class="sheet-head">
+      <h2 id="lg-title">練習の記録</h2>
+      <button class="icon-btn" id="lg-close" type="button" aria-label="記録を閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div id="lg-empty" class="status" hidden>まだ記録がありません<small>「練習する」でお題の距離を打ち、転がった距離を入力すると、ここにズレが記録されます。</small></div>
+
+    <div id="lg-body">
+      <section class="block">
+        <h3 class="sec">上達のようす</h3>
+        <p>ズレは「お題の距離に対して何％ずれたか」です。小さいほど距離感が合っています。10％以内が合格圏の目安です。</p>
+        <div class="tiles" id="lg-tiles"></div>
+        <div id="lg-advice"></div>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">10球ごとの平均ズレ</h3>
+        <div class="chart" id="lg-chart"></div>
+        <div class="status" id="lg-tip"></div>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">距離ごとの傾向</h3>
+        <div class="bands" id="lg-bands"></div>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">記録の一覧</h3>
+        <div class="log-list" id="lg-list"></div>
+        <button class="btn-ghost" id="lg-more" type="button" hidden>さらに表示する</button>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">記録を消す</h3>
+        <p>記録はこのスマホの中だけに保存されています。消すと元に戻せません。</p>
+        <button class="btn-ghost" id="lg-clear" type="button">すべての記録を消す</button>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+/* GOLF GUTS PUTT LAB — 計算ロジック（画面とは独立。Node でも単体テストできる）
+ *
+ * 座標系: x = ボール→カップ方向（m）, y = カップに向かって右（m）
+ * 傾斜:   fwd  > 0 … カップに向かって上り（度）
+ *         side > 0 … 右下がり（度）＝ボールは右へ曲がる
+ * 仮定:   測定地点の傾斜がカップまで一定（平面）。転がり抵抗はスティンプ値から求めた一定の減速。
+ */
+var PuttPhysics = (function () {
+  'use strict';
+
+  var G = 9.80665;          // 重力加速度 m/s²
+  var ROLL = 5 / 7;         // 転がる球にかかる斜面方向の重力の係数（球の慣性モーメント分）
+  var STIMP_V0 = 1.83;      // スティンプメーターの放球速度 m/s
+  var FT = 0.3048, YD = 0.9144;
+  var CUP = 0.108;          // カップ直径 m
+  var PAST = 0.30;          // カップを過ぎて止まる目標距離 m（カップ付近の目標速度の代わり）
+  var DEG = Math.PI / 180;
+
+  /** スティンプ値(ft) → 平坦なグリーンでの減速 m/s² */
+  function decel(stimpFt) {
+    return (STIMP_V0 * STIMP_V0) / (2 * stimpFt * FT);
+  }
+
+  /** 傾斜による面内の加速度 */
+  function slopeAccel(fwdDeg, sideDeg) {
+    return {
+      gx: -ROLL * G * Math.sin(fwdDeg * DEG),
+      gy: ROLL * G * Math.sin(sideDeg * DEG)
+    };
+  }
+
+  /** ボール1球ぶんの転がりを数値積分する */
+  function simulate(p) {
+    var dt = p.dt || 0.004;
+    var x = 0, y = 0;
+    var vx = p.v0 * Math.cos(p.phi), vy = p.v0 * Math.sin(p.phi);
+    var t = 0, n = 0, crossed = false;
+    var yCross = null, vCross = null, tCross = null, dirCross = null, past = 0;
+    var path = p.wantPath ? [[0, 0]] : null;
+
+    while (t < 40) {
+      var s = Math.sqrt(vx * vx + vy * vy);
+      if (s < 1e-4) break;
+      var ax = p.gx - p.a * vx / s, ay = p.gy - p.a * vy / s;
+      var nvx = vx + ax * dt, nvy = vy + ay * dt;
+      if (nvx * vx + nvy * vy <= 0) {
+        // このステップの途中で止まる
+        var f0 = Math.min(1, s / (Math.sqrt(ax * ax + ay * ay) * dt));
+        var ex = vx * dt * f0 * 0.5, ey = vy * dt * f0 * 0.5;
+        if (!crossed && x + ex >= p.D) {
+          crossed = true; yCross = y; vCross = 0; tCross = t;
+        } else if (crossed) {
+          past += Math.sqrt(ex * ex + ey * ey);
+        }
+        x += ex; y += ey; t += dt * f0;
+        break;
+      }
+      var dx = (vx + nvx) * 0.5 * dt, dy = (vy + nvy) * 0.5 * dt;
+      var step = Math.sqrt(dx * dx + dy * dy);
+      if (!crossed && x + dx >= p.D) {
+        var f = (p.D - x) / dx;
+        yCross = y + dy * f;
+        vCross = s + (Math.sqrt(nvx * nvx + nvy * nvy) - s) * f;
+        tCross = t + dt * f;
+        crossed = true;
+        dirCross = [dx / step, dy / step];
+        past += step * (1 - f);
+        if (path) path.push([p.D, yCross]);
+        if (p.stopAtCup) { x = p.D; y = yCross; t = tCross; break; }
+      } else if (crossed) {
+        past += step;
+      }
+      x += dx; y += dy; vx = nvx; vy = nvy; t += dt;
+      if (path && (++n % 4 === 0) && !crossed) path.push([x, y]);
+    }
+    return {
+      reached: crossed, yCross: yCross, vCross: vCross, tCross: tCross, dirCross: dirCross,
+      past: past, stop: [x, y], time: t, path: path
+    };
+  }
+
+  /** 与えた初速で、カップ中心を通る打ち出し方向を探す */
+  function aimFor(v0, env, stopAtCup) {
+    var phi = 0, r = null, ok = false;
+    for (var i = 0; i < 60; i++) {
+      r = simulate({ v0: v0, phi: phi, gx: env.gx, gy: env.gy, a: env.a, D: env.D, stopAtCup: stopAtCup });
+      if (!r.reached) return { reached: false };
+      if (Math.abs(r.yCross) < 0.0004) { ok = true; break; }
+      phi -= Math.atan2(r.yCross, env.D);
+      if (Math.abs(phi) > 1.2) return { reached: false };
+    }
+    if (!ok) return { reached: false };
+    return { reached: true, phi: phi, past: r.past, vCross: r.vCross, dirCross: r.dirCross };
+  }
+
+  /**
+   * 急な傾斜で使う「カップに届いたときの目標速度」。
+   * ゆるい傾斜での基準（カップを30cm過ぎて止まる）と同じ速さになるように、
+   * カップ地点での実際の減速（転がり抵抗 ＋ 進行方向の傾斜）から決める。
+   * 下りが急で減速がほとんど無い場合は、下限（平坦の2割の減速に相当）を使う。
+   */
+  function cupSpeed(env, dir) {
+    var along = env.gx * dir[0] + env.gy * dir[1];           // 進行方向の重力（正＝加速）
+    return Math.sqrt(2 * Math.max(env.a - along, 0.2 * env.a) * PAST);
+  }
+
+  /**
+   * ラインと必要な初速を求める
+   * @param {number} distM   カップまでの距離 m
+   * @param {number} fwdDeg  前後傾斜（上りが正）
+   * @param {number} sideDeg 左右傾斜（右下がりが正）
+   * @param {number} stimpFt グリーン速度（スティンプ値 ft）
+   */
+  function solve(distM, fwdDeg, sideDeg, stimpFt) {
+    var a = decel(stimpFt);
+    var g = slopeAccel(fwdDeg, sideDeg);
+    var gmag = Math.sqrt(g.gx * g.gx + g.gy * g.gy);
+    if (!(distM > 0)) return { ok: false, reason: 'distance' };
+
+    // 傾斜がゆるい間は「カップを30cm過ぎて止まる強さ」。
+    // 急な傾斜ではボールが斜面で止まれないので、「カップに届く強さ（届いたときの速さで合わせる）」に切り替える。
+    var steep = gmag > 0.8 * a;
+    var env = { gx: g.gx, gy: g.gy, a: a, D: distM };
+    var V_MIN = 0.02, lo = V_MIN, hi = 14, best = null;
+    for (var i = 0; i < 44; i++) {
+      var v = (lo + hi) / 2;
+      var r = aimFor(v, env, steep);
+      var enough = r.reached && (steep ? r.vCross >= cupSpeed(env, r.dirCross) : r.past >= PAST);
+      if (!enough) { lo = v; }
+      else { hi = v; best = { v0: v, phi: r.phi }; }
+    }
+    if (!best) return { ok: false, reason: 'unreachable' };
+
+    var fin = simulate({
+      v0: best.v0, phi: best.phi, gx: g.gx, gy: g.gy, a: a, D: distM, wantPath: true, stopAtCup: steep
+    });
+    // 下りが急すぎて、ほんの少し触れただけでもカップを通り過ぎる速さになる場合
+    var runaway = steep && best.v0 < V_MIN * 2.5;
+    var aim = distM * Math.tan(best.phi);           // カップ中心から見た狙い点（右が正）
+    var maxDev = 0;
+    for (var k = 0; k < fin.path.length; k++) {
+      if (Math.abs(fin.path[k][1]) > Math.abs(maxDev)) maxDev = fin.path[k][1];
+    }
+    return {
+      ok: true,
+      v0: best.v0,
+      phi: best.phi,
+      aim: aim,
+      cups: Math.abs(aim) / CUP,
+      breakDir: aim > 0 ? 'left' : 'right',         // ボールが曲がる方向（狙いの逆）
+      path: fin.path,
+      maxDev: maxDev,
+      timeToCup: fin.tCross,
+      flatEq: (best.v0 * best.v0) / (2 * a),        // 同じ強さで平坦なら転がる距離 m
+      decel: a,
+      steep: steep,                                 // 急傾斜（カップを外すと止まりにくい）
+      canRest: gmag < a,                            // 斜面の途中でボールが止まっていられるか
+      runaway: runaway,                             // 触れるだけで届いてしまい、強さを加減できない
+      cupV: fin.vCross
+    };
+  }
+
+  /* ---- 振り幅モデル（90BPM固定なので、振り幅がほぼそのまま初速を決める） ---- */
+
+  // 仮の基準: 20cm の振り幅で、スティンプ9ftの平坦なグリーンを 3yd 転がる
+  var DEFAULT_REF = { cm: 20, yd: 3, stimp: 9 };
+
+  function speedForRoll(distM, stimpFt) {
+    return Math.sqrt(2 * decel(stimpFt) * distM);
+  }
+
+  /**
+   * キャリブレーション点から「振り幅(cm) → 初速(m/s)」のモデルを作る
+   * points: [{cm, yd:[...], stimp}]
+   *   0点 … 仮の基準（比例）
+   *   1点 … その点を通る比例
+   *   2点以上 … 両対数の最小二乗で v = c·L^p（p は 0.6〜1.4 に制限）
+   */
+  function strokeModel(points) {
+    var pts = [];
+    (points || []).forEach(function (pt) {
+      var ds = (pt.yd || []).filter(function (d) { return d > 0; });
+      if (!ds.length || !(pt.cm > 0)) return;
+      var mean = ds.reduce(function (s, d) { return s + d; }, 0) / ds.length;
+      pts.push({ cm: pt.cm, meanYd: mean, v: speedForRoll(mean * YD, pt.stimp || 9) });
+    });
+    var c, p = 1, source;
+    if (!pts.length) {
+      c = speedForRoll(DEFAULT_REF.yd * YD, DEFAULT_REF.stimp) / DEFAULT_REF.cm;
+      source = 'default';
+    } else if (pts.length === 1) {
+      c = pts[0].v / pts[0].cm;
+      source = 'single';
+    } else {
+      var n = pts.length, sx = 0, sy = 0, sxx = 0, sxy = 0;
+      pts.forEach(function (q) {
+        var lx = Math.log(q.cm), ly = Math.log(q.v);
+        sx += lx; sy += ly; sxx += lx * lx; sxy += lx * ly;
+      });
+      var den = n * sxx - sx * sx;
+      p = den > 1e-9 ? (n * sxy - sx * sy) / den : 1;
+      p = Math.max(0.6, Math.min(1.4, p));
+      c = Math.exp((sy - p * sx) / n);
+      source = 'curve';
+    }
+    return {
+      c: c, p: p, source: source, points: pts,
+      speed: function (cm) { return c * Math.pow(cm, p); },
+      stroke: function (v) { return Math.pow(v / c, 1 / p); },
+      /** その振り幅で平坦なグリーンを転がる距離 yd */
+      rollYd: function (cm, stimpFt) {
+        var v = c * Math.pow(cm, p);
+        return (v * v) / (2 * decel(stimpFt)) / YD;
+      }
+    };
+  }
+
+  return {
+    G: G, YD: YD, FT: FT, CUP: CUP, PAST: PAST, DEFAULT_REF: DEFAULT_REF,
+    decel: decel, slopeAccel: slopeAccel, simulate: simulate, solve: solve,
+    strokeModel: strokeModel, speedForRoll: speedForRoll
+  };
+})();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = PuttPhysics;
+</script>
+<script>
+/* GOLF GUTS KYORI LAB — 距離感の計算と記録の集計（画面とは独立。Node でも単体テストできる）
+ *
+ * 振り幅 ⇔ 距離の換算は PUTT LAB の PuttPhysics（physics.js・無変更）をそのまま使う。
+ * 距離の定義: 平坦なグリーンで、ボールが止まるまでに転がる距離（yd）。
+ *   ※ PUTT LAB は「カップを約30cm過ぎて止まる強さ」で計算するので、同じ距離でも少し大きい振り幅になる。
+ */
+var Kyori = (function (P) {
+  'use strict';
+
+  var YD = P.YD;
+  var DIST_MIN = 0.5, DIST_MAX = 20;      // 入力できる距離 yd（PUTT LAB と同じ）
+  var ROLL_MIN = 0.1, ROLL_MAX = 60;      // 実測として受け付ける距離 yd（PUTT LAB の登録と同じ上限）
+  var STIMP_MIN = 7, STIMP_MAX = 13;
+  var LOG_MAX = 2000;                     // 記録の保存上限（超えたら古い順に消す）
+  var BLOCK = 10;                         // 上達グラフは10球ごとに区切る
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function half(v) { return Math.round(v * 2) / 2; }
+  function r1(v) { return Math.round(v * 10) / 10; }
+
+  /** PUTT LAB と同じ形式・同じ基準で登録データを整える */
+  function sanitizeCal(c) {
+    if (!Array.isArray(c)) return [];
+    return c.filter(function (p) { return p && p.cm > 0 && Array.isArray(p.yd); })
+      .map(function (p) { return { cm: +p.cm, yd: p.yd.map(Number).filter(function (d) { return d > 0 && d < ROLL_MAX; }), stimp: +p.stimp || 9 }; })
+      .filter(function (p) { return p.yd.length; });
+  }
+  function sanitizeStimp(v) { return clamp(Number(v) || 9, STIMP_MIN, STIMP_MAX); }
+  function sanitizeDist(v, d) { v = Number(v); return isFinite(v) && v > 0 ? clamp(r1(v), DIST_MIN, DIST_MAX) : (d || 3); }
+
+  /**
+   * 打ちたい距離(yd) → 必要な振り幅(cm)
+   * 必ず値を返す。精度が下がる条件は flags で知らせる（画面で注意書きにする）。
+   */
+  function strokeFor(distYd, stimpFt, cal) {
+    var model = P.strokeModel(cal);
+    var d = clamp(distYd, DIST_MIN, DIST_MAX);
+    var cm = model.stroke(P.speedForRoll(d * YD, stimpFt));
+    var lo = Infinity, hi = -Infinity;
+    model.points.forEach(function (q) { if (q.cm < lo) lo = q.cm; if (q.cm > hi) hi = q.cm; });
+    // 登録した点どうしが食い違っていないか（例: 10cm より 20cm のほうが転がらない）。
+    // 曲線が登録点の距離を25%以上外しているなら、登録の見直しをすすめる
+    var poorFit = false;
+    if (model.source === 'curve') {
+      model.points.forEach(function (q) { var ratio = Math.pow(model.speed(q.cm) / q.v, 2); if (ratio > 1.25 || ratio < 0.75) poorFit = true; });
+    }
+    var flags = {
+      provisional: model.source === 'default',                       // 未登録（仮の基準）
+      single: model.source === 'single',                             // 1点だけ（比例で推定）
+      // 登録した振り幅から離れている（外側への推定）
+      outside: model.source !== 'default' && (cm < lo * 0.7 || cm > hi * 1.3),
+      poorFit: poorFit,                                              // 登録した距離どうしが食い違っている
+      big: cm > 60,                                                  // 振り幅が大きすぎて推定が粗い
+      tiny: cm < 3                                                   // 振り幅が小さすぎて再現しにくい
+    };
+    return { cm: cm, shown: Math.max(1, Math.round(cm)), model: model, source: model.source, calRange: model.points.length ? [lo, hi] : null, flags: flags };
+  }
+
+  /** 卵(6cm)・りんご(8cm)・ペットボトル(20cm) に換算。丸め方は PUTT LAB と同じ */
+  var ITEMS = [
+    { key: 'egg', name: '卵', cm: 6, unit: '個' },
+    { key: 'apple', name: 'りんご', cm: 8, unit: '個' },
+    { key: 'bottle', name: 'ペットボトル', cm: 20, unit: '本' }
+  ];
+  function itemCounts(cm) {
+    return ITEMS.map(function (it) {
+      var cnt = cm / it.cm;
+      return { key: it.key, name: it.name, unit: it.unit, cm: it.cm, raw: cnt, shown: it.key === 'bottle' ? r1(cnt) : Math.max(0.5, half(cnt)) };
+    });
+  }
+
+  /* ---------- 練習モード ---------- */
+  var RANGES = [
+    { key: 'short', name: 'ショート', lo: 1, hi: 3 },
+    { key: 'mid', name: 'ミドル', lo: 3.5, hi: 6 },
+    { key: 'long', name: 'ロング', lo: 6.5, hi: 10 },
+    { key: 'mix', name: 'ミックス', lo: 1, hi: 10 }
+  ];
+  function rangeOf(key) { return RANGES.filter(function (r) { return r.key === key; })[0] || RANGES[3]; }
+
+  /** お題の距離を0.5yd刻みで選ぶ。直前と同じ距離は出さない */
+  function nextTarget(rangeKey, prev, rnd) {
+    var r = rangeOf(rangeKey), list = [];
+    for (var v = r.lo; v <= r.hi + 1e-9; v += 0.5) if (Math.abs(v - prev) > 1e-9) list.push(r1(v));
+    return list[Math.min(list.length - 1, Math.floor((rnd || Math.random)() * list.length))];
+  }
+
+  /** お題と実測からズレを判定する。pct はお題に対する割合（＋がオーバー） */
+  var PASS_PCT = 10, JUST_PCT = 5;
+  function judge(targetYd, actualYd) {
+    // 2yd→2.2yd が計算誤差で 10.000000000000009% になり「10%以内」から外れるのを防ぐ
+    var diff = actualYd - targetYd, pct = diff / targetYd * 100, a = Math.abs(pct) - 1e-6;
+    return {
+      diff: diff, pct: pct,
+      dir: a <= JUST_PCT ? 'just' : (diff > 0 ? 'over' : 'short'),
+      grade: a <= JUST_PCT ? 'just' : a <= PASS_PCT ? 'pass' : 'off'
+    };
+  }
+
+  function sanitizeLog(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(function (e) {
+      return e && e.target >= DIST_MIN && e.target <= DIST_MAX && e.actual >= ROLL_MIN && e.actual <= ROLL_MAX && isFinite(e.t);
+    }).map(function (e) {
+      return { t: +e.t, target: +e.target, actual: +e.actual, cm: isFinite(e.cm) ? +e.cm : null, stimp: isFinite(e.stimp) ? +e.stimp : null };
+    }).slice(-LOG_MAX);
+  }
+
+  function summarize(list) {
+    if (!list.length) return null;
+    var abs = 0, sgn = 0, pass = 0;
+    list.forEach(function (e) { var j = judge(e.target, e.actual); abs += Math.abs(j.pct); sgn += j.pct; if (j.grade !== 'off') pass++; });
+    return { n: list.length, absPct: abs / list.length, signedPct: sgn / list.length, pass: pass };
+  }
+
+  /** 傾向の言葉。平均のズレが±3%未満なら偏りなし */
+  function biasWord(signedPct) { return Math.abs(signedPct) < 3 ? 'even' : signedPct > 0 ? 'over' : 'short'; }
+
+  /**
+   * 記録の集計（log は古い順）
+   *   recent … 直近10球 / prev … その前の10球（5球以上あるときだけ比較に使う）
+   *   blocks … 10球ごとの平均ズレ（最新8区切り。最後の区切りは10球未満のことがある）
+   *   bands  … 距離帯ごとの平均ズレ
+   */
+  function stats(log) {
+    var n = log.length;
+    var recent = summarize(log.slice(-BLOCK));
+    var prevList = log.slice(Math.max(0, n - 2 * BLOCK), Math.max(0, n - BLOCK));
+    var prev = prevList.length >= 5 ? summarize(prevList) : null;
+    var blocks = [];
+    for (var i = 0; i < n; i += BLOCK) {
+      var s = summarize(log.slice(i, i + BLOCK));
+      blocks.push({ from: i + 1, to: Math.min(i + BLOCK, n), n: s.n, absPct: s.absPct, signedPct: s.signedPct });
+    }
+    var bandDefs = [
+      { key: 'short', name: '3yd まで', test: function (d) { return d <= 3; } },
+      { key: 'mid', name: '3〜6yd', test: function (d) { return d > 3 && d <= 6; } },
+      { key: 'long', name: '6yd より長い', test: function (d) { return d > 6; } }
+    ];
+    var bands = bandDefs.map(function (b) {
+      var s = summarize(log.filter(function (e) { return b.test(e.target); }));
+      return { key: b.key, name: b.name, n: s ? s.n : 0, absPct: s ? s.absPct : null, signedPct: s ? s.signedPct : null };
+    });
+    var trend = null;                                   // 直近10球と、その前の10球の比較
+    if (recent && prev && recent.n >= 5) {
+      var d = recent.absPct - prev.absPct;
+      trend = { delta: d, dir: Math.abs(d) < 1 ? 'same' : d < 0 ? 'better' : 'worse' };
+    }
+    return { n: n, recent: recent, prev: prev, trend: trend, blocks: blocks.slice(-8), bands: bands, all: summarize(log) };
+  }
+
+  return {
+    DIST_MIN: DIST_MIN, DIST_MAX: DIST_MAX, ROLL_MIN: ROLL_MIN, ROLL_MAX: ROLL_MAX, STIMP_MIN: STIMP_MIN, STIMP_MAX: STIMP_MAX,
+    LOG_MAX: LOG_MAX, BLOCK: BLOCK, PASS_PCT: PASS_PCT, JUST_PCT: JUST_PCT, ITEMS: ITEMS, RANGES: RANGES,
+    clamp: clamp, half: half, r1: r1,
+    sanitizeCal: sanitizeCal, sanitizeStimp: sanitizeStimp, sanitizeDist: sanitizeDist, sanitizeLog: sanitizeLog,
+    strokeFor: strokeFor, itemCounts: itemCounts, rangeOf: rangeOf, nextTarget: nextTarget,
+    judge: judge, summarize: summarize, biasWord: biasWord, stats: stats
+  };
+})(typeof PuttPhysics !== 'undefined' ? PuttPhysics : require('./physics.js'));
+
+if (typeof module !== 'undefined' && module.exports) module.exports = Kyori;
+</script>
+<script>
+/* GOLF GUTS KYORI LAB — 画面・保存・メトロノーム
+ * 「PUTT LAB と同じ」と書いた部分は、PUTT LAB の app.js から変更せずに持ってきたもの。 */
+(function () {
+  'use strict';
+
+  var VERSION = '1.0.0';
+  var P = PuttPhysics, K = Kyori, YD = P.YD, DEG = Math.PI / 180;
+  var $ = function (id) { return document.getElementById(id); };
+  var C = {
+    chalk: '#f3f7ee', dim: '#abc3b1', faint: '#7a9a85', volt: '#e4ff1a', ink: '#131f06', pin: '#ff5b3a',
+    t950: '#05150d', t900: '#0a2417', t800: '#0f3321', t700: '#16442d', t600: '#21603f', t500: '#2f7d52'
+  };
+
+  /* ---------- 保存（端末内のみ。使えない環境でも動く） ----------
+     ggpl.* … PUTT LAB と共通（グリーンの速さ stimp・振り幅の登録 cal）。形式は PUTT LAB のまま。
+     ggkl.* … KYORI LAB だけが使う（最後の距離・お題の範囲・練習の記録）。 */
+  function mkStore(prefix) {
+    return {
+      get: function (k, d) {
+        try { var v = localStorage.getItem(prefix + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; }
+      },
+      set: function (k, v) {
+        try { localStorage.setItem(prefix + k, JSON.stringify(v)); return true; } catch (e) { return false; }
+      }
+    };
+  }
+  var shared = mkStore('ggpl.'), own = mkStore('ggkl.');
+  var canStore = (function () {
+    try { localStorage.setItem('ggkl.probe', '1'); var ok = localStorage.getItem('ggkl.probe') === '1'; localStorage.removeItem('ggkl.probe'); return ok; } catch (e) { return false; }
+  })();
+
+  var CAL_CM = [10, 20, 30];
+  var clamp = K.clamp, half = K.half;
+  var state = {
+    mode: 'find',                                  // 'find' 振り幅を調べる / 'practice' 練習する
+    dist: K.sanitizeDist(own.get('dist', 3), 3),
+    stimp: K.sanitizeStimp(shared.get('stimp', 9)),
+    cal: K.sanitizeCal(shared.get('cal', [])),
+    log: K.sanitizeLog(own.get('log', [])),        // 古い順
+    range: K.rangeOf(own.get('range', 'mix')).key,
+    target: null,                                  // お題 yd
+    phase: 'input',                                // 'input' 入力待ち / 'result' 結果表示
+    last: null,                                    // 直前に記録した1件
+    strokeCm: 20,
+    listShown: 30
+  };
+
+  function numTxt(v) { return (Math.round(v * 10) / 10).toString(); }
+  function signedTxt(v, digits) { var a = Math.abs(v).toFixed(digits); return (+a === 0 ? '±' : v > 0 ? '+' : '−') + a; }
+  function pctTxt(v) { return Math.round(Math.abs(v)).toString(); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200);
+  }
+
+  /* 取り返しのつかない操作は、同じボタンを2回押して実行する */
+  function armed(btn, label, run) {
+    if (btn.classList.contains('armed')) { disarm(btn); run(); return; }
+    btn.dataset.orig = btn.innerHTML; btn.classList.add('armed'); btn.textContent = label;
+    btn._t = setTimeout(function () { disarm(btn); }, 4000);
+  }
+  function disarm(btn) {
+    if (!btn.classList.contains('armed')) return;
+    clearTimeout(btn._t); btn.classList.remove('armed'); btn.innerHTML = btn.dataset.orig;
+  }
+
+  /* ---------- PUTT LAB と同じ：矢じり ---------- */
+  /** 線分 a→b の先に矢じりを付ける（先端, 左, 右） */
+  function arrowHead(a, b, size) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.sqrt(dx * dx + dy * dy) || 1; dx /= len; dy /= len;
+    var tip = [b[0] + dx * size, b[1] + dy * size];
+    return [tip, [b[0] - dy * size * 0.75, b[1] + dx * size * 0.75], [b[0] + dy * size * 0.75, b[1] - dx * size * 0.75]];
+  }
+
+  /* ---------- PUTT LAB と同じ：画面を消灯させない ---------- */
+  var wake = null;
+  function requestWake() {
+    try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { wake = w; }, function () { }); } catch (e) { /* 任意機能 */ }
+  }
+  function releaseWake() { try { if (wake) { wake.release(); wake = null; } } catch (e) { /* 任意機能 */ } }
+
+  /* =====================================================================
+     振り幅を調べる
+     ===================================================================== */
+  var DIST_CHIPS = [1, 2, 3, 5, 7, 10];
+  function setDist(v, from) {
+    if (!isFinite(v)) return;
+    state.dist = clamp(Math.round(v * 10) / 10, K.DIST_MIN, K.DIST_MAX);
+    own.set('dist', state.dist);
+    if (from !== 'num') $('dist-num').value = numTxt(state.dist);
+    if (from !== 'range') $('dist-range').value = state.dist;
+    renderFind();
+  }
+
+  /** 精度が下がる条件の注意書き（値は必ず出したうえで添える） */
+  function warnHtml(s) {
+    var f = s.flags, out = [];
+    if (f.big) out.push('<p class="caution"><b>振り幅が60cmを超えています</b>ここまで大きいと推定の精度が下がります。目安としてお使いください。</p>');
+    if (f.tiny) out.push('<p class="caution"><b>振り幅が3cm未満です</b>小さすぎて同じ幅を再現しにくい距離です。目安としてお使いください。</p>');
+    if (f.poorFit) out.push('<p class="caution"><b>登録した距離に食い違いがあります</b>振り幅を大きくしても距離が伸びていないなど、登録どうしが合っていません。登録を見直すと精度が上がります。</p>');
+    if (f.outside && !f.big && !f.tiny) {
+      var r = s.calRange, reg = r[0] === r[1] ? r[0] + 'cm' : r[0] + '〜' + r[1] + 'cm';
+      out.push('<p class="caution"><b>登録した振り幅から離れています</b>登録は ' + reg + ' です。そこから離れた距離は推定の精度が下がります。</p>');
+    }
+    return out.join('');
+  }
+  function sourceNote(s) {
+    if (s.source === 'default') return '仮の基準（振り幅20cmで3yd転がる）で計算しています。自分の距離感を登録すると、あなたに合った値になります。';
+    if (s.source === 'single') return 'あなたの登録（1点：' + s.model.points[0].cm + 'cm で平均 ' + s.model.points[0].meanYd.toFixed(1) + 'yd）から比例で計算しています。複数の振り幅を登録すると精度が上がります。';
+    return 'あなたの登録（' + s.model.points.length + '点）をもとに計算しています。';
+  }
+
+  function renderFind() {
+    $('dist-m').textContent = '約' + (state.dist * YD).toFixed(1) + 'm';
+    Array.prototype.forEach.call($('dist-chips').children, function (b) {
+      b.setAttribute('aria-pressed', String(+b.dataset.v === state.dist));
+    });
+    var s = K.strokeFor(state.dist, state.stimp, state.cal);
+    $('st-cm').textContent = s.shown;
+    $('st-sub').innerHTML = '平坦なグリーン（速さ ' + state.stimp.toFixed(1) + 'ft）で ' + numTxt(state.dist) + 'yd 転がして止める強さ';
+    var sv = $('stroke-view');
+    sv.classList.remove('tight'); sv.innerHTML = strokeRows(s.cm);
+    // ラベル（「約20.5個分」など）が欄に収まらないときだけ、文字を小さくする
+    if (Array.prototype.some.call(sv.querySelectorAll('.lab'), function (el) { return el.scrollWidth > el.clientWidth + 1; })) sv.classList.add('tight');
+    $('st-warn').innerHTML = warnHtml(s);
+    $('st-note').textContent = sourceNote(s) + ' PUTT LAB の振り幅は「カップを約30cm過ぎて止まる強さ」なので、同じ距離でも少し大きく表示されます。';
+    $('st-register').hidden = s.source !== 'default';
+    if (state.mode === 'find') { state.strokeCm = s.cm; Metro.layout(); }
+  }
+
+  /* ===== ここから PUTT LAB と同じ ===== */
+  /* ---------- 振り幅の図（卵・りんご・ペットボトルを同じ縮尺で並べる） ---------- */
+  var ITEMS = [
+    { key: 'egg', name: '卵', cm: 6, unit: '個', h: 30 },
+    { key: 'apple', name: 'りんご', cm: 8, unit: '個', h: 44 },
+    { key: 'bottle', name: 'ペットボトル', cm: 20, unit: '本', h: 36 }
+  ];
+  function strokeRows(L) {
+    var W = 230, x0 = 30, s = Math.min(4, (W - x0 - 12) / Math.max(L, 5)), x1 = x0 + L * s, out = '';
+    function guides(h) {
+      return '<path d="M' + x0 + ' 0V' + h + 'M' + x1.toFixed(1) + ' 0V' + h + '" stroke="' + C.chalk + '" stroke-opacity=".35" stroke-width="1" stroke-dasharray="2 3"/>';
+    }
+    // パター（アドレスとトップ）
+    var gy = 46, hh = 2.8 * s, hw = 3 * s, br = Math.max(4, 2.13 * s);
+    function putter(x, ghost) {
+      var st = ghost ? ' fill="none" stroke="' + C.chalk + '" stroke-opacity=".75" stroke-width="1.4" stroke-dasharray="3 2.5"' : ' fill="' + C.chalk + '"';
+      return '<rect x="' + x.toFixed(1) + '" y="' + (gy - hh).toFixed(1) + '" width="' + hw.toFixed(1) + '" height="' + hh.toFixed(1) + '" rx="1.5"' + st + '/>' +
+        '<line x1="' + (x + hw * 0.4).toFixed(1) + '" y1="' + (gy - hh).toFixed(1) + '" x2="' + (x + hw * 0.4 + 2).toFixed(1) + '" y2="2" stroke="' + C.chalk + '" stroke-width="' + (ghost ? 1.4 : 2.4) + '"' + (ghost ? ' stroke-opacity=".75" stroke-dasharray="3 2.5"' : '') + ' stroke-linecap="round"/>';
+    }
+    var p = '<svg viewBox="0 0 ' + W + ' 76" xmlns="http://www.w3.org/2000/svg">' + guides(76);
+    p += '<line x1="0" y1="' + gy + '" x2="' + W + '" y2="' + gy + '" stroke="' + C.t500 + '" stroke-width="2"/>';
+    p += '<circle cx="' + (x0 - br - 1).toFixed(1) + '" cy="' + (gy - br).toFixed(1) + '" r="' + br.toFixed(1) + '" fill="' + C.chalk + '"/>';
+    p += putter(x1, true) + putter(x0, false);
+    var a = arrowHead([x0 + 10, 57], [x1 - 7, 57], 7), b = arrowHead([x1 - 10, 57], [x0 + 7, 57], 7);
+    function poly(h) { return '<polygon points="' + h.map(function (q) { return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' ') + '" fill="' + C.volt + '"/>'; }
+    p += '<line x1="' + (x0 + 7) + '" y1="57" x2="' + (x1 - 7).toFixed(1) + '" y2="57" stroke="' + C.volt + '" stroke-width="2"/>' + poly(a) + poly(b);
+    p += '<text x="' + (x0 + 9) + '" y="72" text-anchor="end" font-size="10" font-weight="700" fill="' + C.dim + '">アドレス</text>';
+    var topEnd = x1 + 24 > W; // 右端に近いときは、文字が切れないよう右寄せにする
+    p += '<text x="' + (topEnd ? W - 1 : x1 - 9).toFixed(1) + '" y="72"' + (topEnd ? ' text-anchor="end"' : '') + ' font-size="10" font-weight="700" fill="' + C.dim + '">トップ</text></svg>';
+    out += '<div class="stroke-row"><div class="lab"><span>パターを引く幅</span><b><em>' + Math.round(L) + '</em>cm</b></div>' + p + '</div>';
+
+    ITEMS.forEach(function (it) {
+      var cnt = L / it.cm, n = Math.ceil(cnt - 1e-6), g = it.h - 3, v = '<svg viewBox="0 0 ' + W + ' ' + it.h + '" xmlns="http://www.w3.org/2000/svg">';
+      v += '<defs><clipPath id="clip-' + it.key + '"><rect x="' + x0 + '" y="0" width="' + (x1 - x0).toFixed(1) + '" height="' + it.h + '"/></clipPath></defs>' + guides(it.h);
+      v += '<line x1="0" y1="' + g + '" x2="' + W + '" y2="' + g + '" stroke="' + C.t500 + '" stroke-width="2"/><g clip-path="url(#clip-' + it.key + ')">';
+      for (var i = 0; i < n; i++) v += drawItem(it.key, x0 + i * it.cm * s, g, s);
+      v += '</g></svg>';
+      var shown = it.key === 'bottle' ? numTxt(Math.round(cnt * 10) / 10) : numTxt(Math.max(0.5, half(cnt)));
+      out += '<div class="stroke-row"><div class="lab"><span>' + it.name + '</span><b>約<em>' + shown + '</em>' + it.unit + '分</b></div>' + v + '</div>';
+    });
+    return out;
+  }
+  function drawItem(key, x, g, s) {
+    if (key === 'egg') {
+      return '<ellipse cx="' + (x + 3 * s) + '" cy="' + (g - 2.2 * s) + '" rx="' + (3 * s - 0.6) + '" ry="' + (2.2 * s) + '" fill="#f6e8cf" stroke="#c9b48c" stroke-width="1"/>';
+    }
+    if (key === 'apple') {
+      var cx = x + 4 * s, cy = g - 3.7 * s;
+      return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + (4 * s - 0.6) + '" ry="' + (3.7 * s) + '" fill="#e5483a" stroke="#a82d22" stroke-width="1"/>' +
+        '<path d="M' + cx + ' ' + (cy - 3.3 * s) + 'q' + (0.3 * s) + ' ' + (-1.4 * s) + ' ' + (1.2 * s) + ' ' + (-2 * s) + '" stroke="#6b4a2a" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+        '<ellipse cx="' + (cx + 2.1 * s) + '" cy="' + (cy - 4.3 * s) + '" rx="' + (1.5 * s) + '" ry="' + (0.7 * s) + '" fill="#7cc35a" transform="rotate(-25 ' + (cx + 2.1 * s) + ' ' + (cy - 4.3 * s) + ')"/>';
+    }
+    // ペットボトル（横倒し・全長20cm）
+    var t = g - 6.5 * s;
+    return '<path d="M' + (x + 1.2 * s) + ' ' + t + 'H' + (x + 14.2 * s) + 'L' + (x + 17.6 * s) + ' ' + (t + 1.8 * s) + 'V' + (g - 1.8 * s) + 'L' + (x + 14.2 * s) + ' ' + g + 'H' + (x + 1.2 * s) + 'Q' + (x + 0.3) + ' ' + g + ' ' + (x + 0.3) + ' ' + (g - 1.2 * s) + 'V' + (t + 1.2 * s) + 'Q' + (x + 0.3) + ' ' + t + ' ' + (x + 1.2 * s) + ' ' + t + 'Z" fill="#bfe6ff" fill-opacity=".3" stroke="#cfeeff" stroke-width="1.2" stroke-linejoin="round"/>' +
+      '<rect x="' + (x + 5 * s) + '" y="' + t + '" width="' + (5.5 * s) + '" height="' + (6.5 * s) + '" fill="#f3f7ee" fill-opacity=".8"/>' +
+      '<rect x="' + (x + 17.6 * s) + '" y="' + (t + 1.6 * s) + '" width="' + (2.4 * s - 0.6) + '" height="' + (3.3 * s) + '" rx="1.2" fill="#f3f7ee"/>';
+  }
+  /* ===== ここまで PUTT LAB と同じ ===== */
+
+  /* =====================================================================
+     練習する（お題 → 打つ → 転がった距離を入力 → ズレを表示して記録）
+     ===================================================================== */
+  function setTarget(v) {
+    state.target = clamp(Math.round(v * 2) / 2, K.DIST_MIN, K.DIST_MAX);
+    state.phase = 'input'; state.last = null;
+    $('pr-actual').value = '';
+    renderPractice();
+  }
+  function setRange(key) {
+    state.range = K.rangeOf(key).key; own.set('range', state.range);
+    setTarget(K.nextTarget(state.range, state.target));
+  }
+
+  function renderPractice() {
+    if (state.target == null) state.target = K.nextTarget(state.range, null);
+    $('pr-target').textContent = numTxt(state.target);
+    $('pr-m').textContent = '約' + (state.target * YD).toFixed(1) + 'm';
+    var r = K.rangeOf(state.range), inRange = state.target >= r.lo && state.target <= r.hi;
+    Array.prototype.forEach.call($('pr-ranges').children, function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.v === state.range && inRange));
+    });
+    var s = K.strokeFor(state.target, state.stimp, state.cal);
+    $('pr-cm').textContent = s.shown;
+    $('pr-items').innerHTML = K.itemCounts(s.cm).map(function (it) {
+      return '<li>' + it.name + '<b>約<em>' + numTxt(it.shown) + '</em>' + it.unit + '分</b></li>';
+    }).join('');
+    $('pr-warn').innerHTML = warnHtml(s);
+    $('pr-note').hidden = s.source !== 'default';
+    $('pr-input-block').hidden = state.phase !== 'input';
+    $('pr-result').hidden = state.phase !== 'result';
+    if (state.phase === 'result' && state.last) $('pr-verdict').outerHTML = verdictHtml(state.last);
+    if (state.mode === 'practice') { state.strokeCm = s.cm; Metro.layout(); }
+  }
+
+  function verdictHtml(e) {
+    var j = K.judge(e.target, e.actual), good = j.grade !== 'off';
+    var word = j.dir === 'just' ? 'ぴったり！' : j.dir === 'over' ? 'オーバー' : 'ショート';
+    var why = j.dir === 'just'
+      ? 'お題とのズレは ' + pctTxt(j.pct) + '%。5%以内に止まりました。'
+      : 'お題より ' + pctTxt(j.pct) + '% ' + (j.dir === 'over' ? '長い' : '短い') + (j.grade === 'pass' ? '。合格圏（10%以内）です。' : '。合格圏は10%以内です。');
+    var st = K.stats(state.log), trend = '';
+    if (st.recent && st.recent.n >= 3) {
+      var b = K.biasWord(st.recent.signedPct);
+      trend = '<p class="trend">直近' + st.recent.n + '球：平均ズレ ' + pctTxt(st.recent.absPct) + '%・' +
+        (b === 'even' ? '長短の偏りなし' : (b === 'over' ? 'オーバー気味' : 'ショート気味') + '（平均 ' + signedTxt(st.recent.signedPct, 0) + '%）') + '</p>';
+    }
+    return '<div class="verdict' + (good ? ' good' : '') + '" id="pr-verdict">' +
+      '<p class="pair">お題 ' + numTxt(e.target) + 'yd → 実際 ' + numTxt(e.actual) + 'yd' + (e.cm ? '（振り幅 ' + e.cm + 'cm）' : '') + '</p>' +
+      '<p class="head"><b>' + signedTxt(j.diff, 1) + '<small>yd</small></b><span class="word">' + word + '</span></p>' +
+      '<p class="why">' + why + '</p>' + trend + '</div>';
+  }
+
+  function readActual() { var v = parseFloat($('pr-actual').value); return isFinite(v) ? v : null; }
+  function stepActual(d) {
+    var v = readActual(); if (v == null) v = state.target;
+    $('pr-actual').value = numTxt(clamp(Math.round((v + d) * 10) / 10, K.ROLL_MIN, K.ROLL_MAX));
+  }
+  function saveLog() { if (!own.set('log', state.log)) toast('このブラウザでは保存できませんでした。記録は画面を閉じると消えます。'); }
+
+  function recordShot() {
+    var v = readActual();
+    if (v == null) { toast('転がった距離（yd）を入力してください。'); $('pr-actual').focus(); return; }
+    if (v < K.ROLL_MIN || v > K.ROLL_MAX) { toast('転がった距離は ' + K.ROLL_MIN + '〜' + K.ROLL_MAX + 'yd の範囲で入力してください。'); return; }
+    var s = K.strokeFor(state.target, state.stimp, state.cal);
+    var e = { t: Date.now(), target: state.target, actual: Math.round(v * 10) / 10, cm: s.shown, stimp: state.stimp };
+    state.log.push(e);
+    if (state.log.length > K.LOG_MAX) state.log = state.log.slice(-K.LOG_MAX);
+    saveLog();
+    state.last = e; state.phase = 'result';
+    renderPractice(); renderLogSummary();
+    $('pr-result').scrollIntoView({ block: 'nearest' });
+  }
+  function undoShot() {
+    var e = state.last; if (!e) return;
+    var i = state.log.indexOf(e);
+    if (i >= 0) { state.log.splice(i, 1); saveLog(); }
+    state.last = null; state.phase = 'input';
+    renderPractice(); renderLogSummary();
+    $('pr-actual').value = numTxt(e.actual);
+    toast('記録を取り消しました。');
+  }
+  function nextShot() {
+    setTarget(K.nextTarget(state.range, state.target));
+    window.scrollTo(0, 0);
+  }
+
+  /* =====================================================================
+     記録と上達
+     ===================================================================== */
+  function biasText(signedPct) {
+    var b = K.biasWord(signedPct);
+    return b === 'even' ? '偏りなし' : b === 'over' ? 'オーバー気味' : 'ショート気味';
+  }
+  function renderLogSummary() {
+    var st = K.stats(state.log);
+    $('log-count').textContent = st.n ? st.n + '球' : '';
+    if (!st.n) {
+      $('log-summary').innerHTML = 'まだ記録がありません<small>「練習する」でお題の距離を打つと、ズレが記録されます。</small>';
+    } else {
+      var r = st.recent, t = st.trend, line = '10%以内 ' + r.pass + '/' + r.n + '球・' + biasText(r.signedPct);
+      if (t) line += '・前の10球より' + (t.dir === 'better' ? '良くなっています' : t.dir === 'worse' ? 'ズレが大きめです' : '変わりません');
+      $('log-summary').innerHTML = '直近' + r.n + '球の平均ズレ ' + pctTxt(r.absPct) + '%<small>' + line + '</small>';
+    }
+  }
+
+  function dayKey(t) { var d = new Date(t); return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate(); }
+  function dayTxt(t) { var d = new Date(t); return (d.getMonth() + 1) + '月' + d.getDate() + '日（' + '日月火水木金土'.charAt(d.getDay()) + '）'; }
+  function timeTxt(t) { var d = new Date(t), m = d.getMinutes(); return d.getHours() + ':' + (m < 10 ? '0' : '') + m; }
+
+  function renderLog() {
+    var st = K.stats(state.log), has = st.n > 0;
+    $('lg-empty').hidden = has; $('lg-body').hidden = !has;
+    if (!has) return;
+    var r = st.recent, t = st.trend, sub;
+    if (t) {
+      sub = 'その前の10球は ' + pctTxt(st.prev.absPct) + '%。' + (t.dir === 'better' ? Math.abs(t.delta).toFixed(0) + 'ポイント小さくなりました。上達しています'
+        : t.dir === 'worse' ? Math.abs(t.delta).toFixed(0) + 'ポイント大きくなっています' : 'ほぼ同じです');
+    } else {
+      sub = 'あと' + Math.max(1, 15 - st.n) + '球記録すると、前の10球と比べられます';
+    }
+    var first = state.log[0];
+    $('lg-tiles').innerHTML =
+      '<div class="tile lead"><span>直近' + r.n + '球の平均ズレ</span><b>' + pctTxt(r.absPct) + '<i>%</i></b><small>' + sub + '</small></div>' +
+      '<div class="tile"><span>10%以内の球数</span><b>' + r.pass + '<i>/' + r.n + '球</i></b><small>直近' + r.n + '球</small></div>' +
+      '<div class="tile"><span>長短の傾向</span><b class="jp">' + biasText(r.signedPct) + '</b><small>直近' + r.n + '球の平均 ' + signedTxt(r.signedPct, 0) + '%</small></div>' +
+      '<div class="tile"><span>これまでの記録</span><b>' + st.n + '<i>球</i></b><small>' + dayKey(first.t) + ' から</small></div>' +
+      '<div class="tile"><span>全体の平均ズレ</span><b>' + pctTxt(st.all.absPct) + '<i>%</i></b><small>10%以内 ' + st.all.pass + '/' + st.all.n + '球</small></div>';
+
+    // 同じ方向のズレが続くときは、設定の見直しをすすめる
+    var adv = '';
+    if (r.n >= K.BLOCK && Math.abs(r.signedPct) >= 10) {
+      adv = '<p class="caution"><b>' + (r.signedPct > 0 ? 'オーバー' : 'ショート') + 'が続いています（平均 ' + signedTxt(r.signedPct, 0) + '%）</b>' +
+        '表示される振り幅が、いまのグリーンやあなたの打ち方と合っていない可能性があります。右上の登録画面で「グリーンの速さ」を合わせるか、振り幅を登録し直すと合いやすくなります。</p>';
+    }
+    $('lg-advice').innerHTML = adv;
+
+    renderChart(st);
+    $('lg-bands').innerHTML = st.bands.map(function (b) {
+      if (!b.n) return '<div class="band"><span class="nm">' + b.name + '<small>記録なし</small></span><span class="v"><i>—</i></span></div>';
+      return '<div class="band"><span class="nm">' + b.name + '<small>' + b.n + '球</small></span><span class="v">' + pctTxt(b.absPct) + '<i>%</i></span>' +
+        '<span class="d">' + biasText(b.signedPct) + '（平均 ' + signedTxt(b.signedPct, 0) + '%）</span></div>';
+    }).join('');
+    renderList();
+  }
+
+  /* 10球ごとの平均ズレ（棒グラフ）。最新の区切りだけ蛍光イエロー、10%の合格ラインを破線で示す */
+  function renderChart(st) {
+    var bl = st.blocks, W = 320, H = 178, L = 34, R = 8, T = 18, B = 40, pw = W - L - R, ph = H - T - B;
+    var mx = 0; bl.forEach(function (b) { if (b.absPct > mx) mx = b.absPct; });
+    var top = Math.max(20, Math.ceil(mx / 10) * 10), step = top > 60 ? 20 : 10;
+    function Y(v) { return T + ph - (v / top) * ph; }
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="10球ごとの平均ズレ。' +
+      bl.map(function (b) { return b.from + '〜' + b.to + '球目 ' + pctTxt(b.absPct) + '%'; }).join('、') + '">';
+    for (var v = 0; v <= top; v += step) {
+      var pass = v === K.PASS_PCT;
+      s += '<line x1="' + L + '" y1="' + Y(v).toFixed(1) + '" x2="' + (W - R) + '" y2="' + Y(v).toFixed(1) + '" stroke="' + C.chalk + '" stroke-opacity="' + (v === 0 ? .4 : pass ? .55 : .12) + '" stroke-width="1"' + (pass ? ' stroke-dasharray="4 4"' : '') + '/>';
+      s += '<text x="' + (L - 6) + '" y="' + (Y(v) + 3.5).toFixed(1) + '" text-anchor="end" font-size="10.5" font-weight="700" fill="' + (pass ? C.chalk : C.faint) + '">' + v + '%</text>';
+    }
+    var slot = pw / Math.max(bl.length, 4), bw = Math.min(30, slot - 8);
+    bl.forEach(function (b, i) {
+      var last = i === bl.length - 1, cx = L + slot * (i + .5), y = Y(b.absPct), h = Math.max(2, T + ph - y), x = cx - bw / 2, r = Math.min(4, h);
+      s += '<path class="bar" data-i="' + i + '" d="M' + x.toFixed(1) + ' ' + (T + ph) + 'V' + (y + r).toFixed(1) + 'Q' + x.toFixed(1) + ' ' + y.toFixed(1) + ' ' + (x + r).toFixed(1) + ' ' + y.toFixed(1) +
+        'H' + (x + bw - r).toFixed(1) + 'Q' + (x + bw).toFixed(1) + ' ' + y.toFixed(1) + ' ' + (x + bw).toFixed(1) + ' ' + (y + r).toFixed(1) + 'V' + (T + ph) + 'Z" fill="' + (last ? C.volt : C.dim) + '"/>';
+      if (last || i === 0) s += '<text x="' + cx.toFixed(1) + '" y="' + (y - 5).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="900" fill="' + C.chalk + '">' + pctTxt(b.absPct) + '%</text>';
+      s += '<text x="' + cx.toFixed(1) + '" y="' + (H - 25) + '" text-anchor="middle" font-size="10.5" font-weight="700" fill="' + (last ? C.chalk : C.faint) + '">' + (last ? '最新' : '〜' + b.to) + '</text>';
+      s += '<rect class="bar" data-i="' + i + '" x="' + (cx - slot / 2).toFixed(1) + '" y="0" width="' + slot.toFixed(1) + '" height="' + H + '" fill="transparent"/>';
+    });
+    s += '<text x="' + (L + pw / 2) + '" y="' + (H - 5) + '" text-anchor="middle" font-size="10" font-weight="700" fill="' + C.faint + '">球数（10球ごと・破線は合格ラインの10%）</text></svg>';
+    $('lg-chart').innerHTML = s;
+    chartTip(st, bl.length - 1);
+  }
+  function chartTip(st, i) {
+    var b = st.blocks[i]; if (!b) return;
+    $('lg-tip').innerHTML = b.from + '〜' + b.to + '球目の平均ズレ ' + pctTxt(b.absPct) + '%<small>' + b.n + '球・' + biasText(b.signedPct) + '（平均 ' + signedTxt(b.signedPct, 0) + '%）。棒を押すと、その10球の内容を表示します。</small>';
+  }
+
+  var X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+  function renderList() {
+    var rows = state.log.slice().reverse().slice(0, state.listShown), html = '', day = '';
+    rows.forEach(function (e) {
+      var k = dayKey(e.t);
+      if (k !== day) { day = k; html += '<p class="log-day">' + dayTxt(e.t) + '</p>'; }
+      var j = K.judge(e.target, e.actual);
+      html += '<div class="log-row' + (j.grade !== 'off' ? ' good' : '') + '">' +
+        '<div><p class="main">' + numTxt(e.target) + 'yd<i>→</i>' + numTxt(e.actual) + 'yd</p>' +
+        '<p class="sub">' + timeTxt(e.t) + (e.cm ? '・振り幅 ' + e.cm + 'cm' : '') + (e.stimp ? '・' + e.stimp.toFixed(1) + 'ft' : '') + '</p></div>' +
+        '<div class="dev"><b>' + signedTxt(j.pct, 0) + '%</b><span>' + (j.dir === 'just' ? 'ぴったり' : j.dir === 'over' ? 'オーバー' : 'ショート') + '</span></div>' +
+        '<button class="del" type="button" data-t="' + e.t + '" aria-label="この記録を消す">' + X_ICON + '</button></div>';
+    });
+    $('lg-list').innerHTML = html;
+    var rest = state.log.length - rows.length;
+    $('lg-more').hidden = rest <= 0;
+    $('lg-more').textContent = 'さらに表示する（残り' + rest + '球）';
+  }
+  function deleteEntry(t) {
+    var n = state.log.length;
+    state.log = state.log.filter(function (e) { return e.t !== t; });
+    if (state.log.length === n) return;
+    if (state.last && state.last.t === t) { state.last = null; state.phase = 'input'; renderPractice(); }
+    saveLog(); renderLog(); renderLogSummary();
+    toast('記録を1件消しました。');
+  }
+
+  /* ===== ここから PUTT LAB と同じ ===== */
+  /* =====================================================================
+     メトロノーム（90 BPM・3/4拍子）
+     音は Web Audio の時計で先に予約し、描画はその時計を読むだけにして分離する。
+     1小節 = 2.000秒: 始動 0.000 / トップ 0.667 / インパクト 1.000 / フォロー 1.333
+     ===================================================================== */
+  var BEAT = 60 / 90, BAR = BEAT * 3, T_TOP = BEAT, T_HIT = BEAT * 1.5, T_FOL = BEAT * 2;
+  var Metro = {
+    ctx: null, playing: false, timer: null, raf: 0, t0: 0, nextBeat: 0, beatNo: 0, perf0: 0, useAudio: false, px: 3, els: null,
+
+    layout: function () {
+      var L = state.strokeCm, W = 340, H = 128, gx = 176, gy = 98;
+      this.px = Math.min(3.2, 104 / Math.max(L, 5));
+      var reach = L * this.px, s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+      s += '<line x1="0" y1="' + gy + '" x2="' + W + '" y2="' + gy + '" stroke="' + C.t500 + '" stroke-width="2"/>';
+      [[gx, '始動'], [gx + reach, 'トップ'], [gx - reach, 'フォロー']].forEach(function (m, i) {
+        s += '<line x1="' + m[0].toFixed(1) + '" y1="' + (gy + 2) + '" x2="' + m[0].toFixed(1) + '" y2="' + (gy + 10) + '" stroke="' + (i === 0 ? C.volt : C.chalk) + '" stroke-width="2" stroke-opacity="' + (i === 0 ? 1 : .6) + '"/>';
+      });
+      if (reach > 46) {
+        s += '<text x="' + (gx + reach).toFixed(1) + '" y="' + (gy + 23) + '" text-anchor="middle" font-size="10.5" font-weight="700" fill="' + C.dim + '">トップ</text>';
+        s += '<text x="' + (gx - reach).toFixed(1) + '" y="' + (gy + 23) + '" text-anchor="middle" font-size="10.5" font-weight="700" fill="' + C.dim + '">フォロー</text>';
+      }
+      s += '<text x="' + gx + '" y="' + (gy + 23) + '" text-anchor="middle" font-size="10.5" font-weight="700" fill="' + C.volt + '">インパクト</text>';
+      s += '<circle id="mt-flash" cx="' + (gx - 8) + '" cy="' + (gy - 7) + '" r="8" fill="none" stroke="' + C.volt + '" stroke-width="3" opacity="0"/>';
+      s += '<circle id="mt-ball" cx="' + (gx - 8) + '" cy="' + (gy - 7) + '" r="6.5" fill="' + C.chalk + '"/>';
+      s += '<g id="mt-putter"><line x1="' + (gx + 5) + '" y1="' + (gy - 13) + '" x2="' + (gx + 5) + '" y2="-40" stroke="' + C.chalk + '" stroke-width="3" stroke-linecap="round"/>';
+      s += '<rect x="' + gx + '" y="' + (gy - 14) + '" width="12" height="13" rx="2" fill="' + C.chalk + '"/></g></svg>';
+      $('metro-stage').innerHTML = s;
+      this.els = { putter: $('mt-putter'), ball: $('mt-ball'), flash: $('mt-flash'), gx: gx, gy: gy, reach: reach };
+      this.draw(this.playing ? this.phase() : 0);
+    },
+
+    /** 小節内の時刻(秒) → ヘッドの位置（アドレス基準。トップ側が正、1.0 = 振り幅ぶん） */
+    head: function (t) {
+      if (t < T_TOP) return (1 - Math.cos(Math.PI * t / T_TOP)) / 2;                      // バックスイング
+      if (t < T_HIT) return Math.cos((Math.PI / 2) * (t - T_TOP) / (T_HIT - T_TOP));      // ダウン → インパクト
+      if (t < T_FOL) return -Math.sin((Math.PI / 2) * (t - T_HIT) / (T_FOL - T_HIT));     // インパクト → フォロー
+      var u = clamp((t - T_FOL - 0.2) / 0.3, 0, 1);                                       // 構え直し
+      return -1 + u * u * (3 - 2 * u);
+    },
+
+    draw: function (t) {
+      var e = this.els; if (!e) return;
+      var dx = this.head(t) * e.reach, R = e.gy + 300, ang = -Math.asin(clamp(dx / R, -1, 1)) / DEG;
+      e.putter.setAttribute('transform', 'rotate(' + ang.toFixed(2) + ' ' + (e.gx + 5) + ' -300)');
+      var bx = e.gx - 8, op = 1;
+      if (this.playing && t >= T_HIT) {
+        var u = clamp((t - T_HIT) / 0.55, 0, 1);
+        bx -= 150 * (1 - Math.pow(1 - u, 2));
+        op = t < T_HIT + 0.3 ? 1 : clamp(1 - (t - T_HIT - 0.3) / 0.25, 0, 1);
+        if (t > BAR - 0.14) { bx = e.gx - 8; op = clamp((t - (BAR - 0.14)) / 0.1, 0, 1); }
+      }
+      e.ball.setAttribute('cx', bx.toFixed(1)); e.ball.setAttribute('opacity', op.toFixed(2));
+      var fl = this.playing && t >= T_HIT && t < T_HIT + 0.22 ? (t - T_HIT) / 0.22 : -1;
+      e.flash.setAttribute('opacity', fl < 0 ? 0 : (1 - fl).toFixed(2));
+      e.flash.setAttribute('r', fl < 0 ? 8 : (8 + fl * 22).toFixed(1));
+      $('metro-stage').classList.toggle('hit', fl >= 0 && fl < 0.6);
+
+      var beats = $('beats').children, ph = $('phases').children, on = this.playing;
+      for (var i = 0; i < 3; i++) {
+        var lit = on && t >= i * BEAT && t < i * BEAT + 0.2;
+        beats[i].className = lit ? (i === 0 ? 'on accent' : 'on') : '';
+      }
+      var cur = !on ? -1 : t < T_TOP ? 0 : t < T_HIT ? 1 : t < T_FOL ? 2 : 3;
+      for (var j = 0; j < 4; j++) ph[j].classList.toggle('on', j === cur);
+    },
+
+    now: function () {
+      if (this.useAudio) return this.ctx.currentTime - (this.ctx.outputLatency || 0);
+      return performance.now() / 1000;
+    },
+    phase: function () { var t = this.now() - this.t0; return t < 0 ? 0 : t % BAR; },
+
+    click: function (when, accent) {
+      var c = this.ctx, o = c.createOscillator(), g = c.createGain();
+      o.type = 'square'; o.frequency.value = accent ? 1568 : 1047;       // 1拍目だけ高く・強く
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(accent ? 0.5 : 0.28, when + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + (accent ? 0.09 : 0.06));
+      o.connect(g); g.connect(c.destination); o.start(when); o.stop(when + 0.12);
+    },
+    schedule: function () {
+      while (this.nextBeat < this.ctx.currentTime + 0.15) {
+        this.click(this.nextBeat, this.beatNo % 3 === 0);
+        this.nextBeat += BEAT; this.beatNo++;
+      }
+    },
+
+    start: function () {
+      if (this.playing) return;
+      var AC = window.AudioContext || window.webkitAudioContext, self = this;
+      this.useAudio = false;
+      if (AC) {
+        try {
+          if (!this.ctx) this.ctx = new AC();
+          // iPhone の消音スイッチでも鳴るようにする（対応端末のみ）
+          try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* 任意 */ }
+          if (this.ctx.state !== 'running') this.ctx.resume();
+          this.useAudio = true;
+        } catch (e) { this.useAudio = false; }
+      }
+      this.playing = true; this.beatNo = 0;
+      if (this.useAudio) {
+        this.nextBeat = this.ctx.currentTime + 0.12;
+        this.t0 = this.nextBeat;
+        this.schedule();
+        this.timer = setInterval(function () { self.schedule(); }, 25);
+      } else {
+        this.t0 = performance.now() / 1000 + 0.12;
+      }
+      var loop = function () { if (!self.playing) return; self.draw(self.phase()); self.raf = requestAnimationFrame(loop); };
+      this.raf = requestAnimationFrame(loop);
+      requestWake();
+      $('metro-btn').textContent = '停止する'; $('metro-btn').setAttribute('aria-pressed', 'true');
+    },
+    stop: function () {
+      if (!this.playing) return;
+      this.playing = false;
+      clearInterval(this.timer); cancelAnimationFrame(this.raf);
+      if (this.ctx) { try { this.ctx.suspend(); } catch (e) { /* 無視 */ } }
+      releaseWake();
+      this.draw(0);
+      $('metro-btn').textContent = '再生する'; $('metro-btn').setAttribute('aria-pressed', 'false');
+    }
+  };
+  /* ===== ここまで PUTT LAB と同じ ===== */
+
+  /* メトロノームのボタンは2か所（下の大きいボタンと、練習のお題の下）。表示をそろえる */
+  function syncMetroButtons() {
+    $('pr-metro').textContent = Metro.playing ? 'メトロノーム ■' : 'メトロノーム ▶';
+    $('pr-metro').setAttribute('aria-label', Metro.playing ? 'メトロノームを停止する' : 'メトロノームを再生する');
+    $('pr-metro').setAttribute('aria-pressed', String(Metro.playing));
+  }
+  var metroStart = Metro.start, metroStop = Metro.stop;
+  Metro.start = function () { metroStart.call(Metro); syncMetroButtons(); };
+  Metro.stop = function () { metroStop.call(Metro); syncMetroButtons(); };
+
+  /* =====================================================================
+     設定（グリーンの速さ・振り幅の登録）… 画面と保存形式は PUTT LAB と同じ
+     ===================================================================== */
+  var STIMPS = [[8, '遅い'], [9, 'ふつう'], [10, '速い'], [11, '高速']];
+  function renderAll() { renderFind(); renderPractice(); }
+  function setStimp(v) {
+    state.stimp = clamp(v, K.STIMP_MIN, K.STIMP_MAX); shared.set('stimp', state.stimp);
+    renderSettings(); renderAll();
+  }
+  function calInputs() {
+    return CAL_CM.map(function (cm) {
+      var yd = [0, 1, 2].map(function (i) { return parseFloat($('cal-' + cm + '-' + i).value); }).filter(function (d) { return d > 0 && d < K.ROLL_MAX; });
+      return { cm: cm, yd: yd };
+    });
+  }
+  function renderCalAvg() {
+    calInputs().forEach(function (r) {
+      $('cal-avg-' + r.cm).textContent = r.yd.length ? (r.yd.reduce(function (a, b) { return a + b; }, 0) / r.yd.length).toFixed(1) + 'yd' : '—';
+    });
+  }
+  function renderSettings() {
+    Array.prototype.forEach.call($('stimp-chips').children, function (b) { b.setAttribute('aria-pressed', String(+b.dataset.v === state.stimp)); });
+    $('stimp-range').value = state.stimp;
+    $('stimp-out').textContent = state.stimp.toFixed(1) + ' ft';
+
+    var m = P.strokeModel(state.cal), guide = CAL_CM.map(function (cm) { return cm + 'cm → ' + m.rollYd(cm, state.stimp).toFixed(1) + 'yd'; }).join(' ／ ');
+    var head = m.source === 'default' ? '未登録（仮の基準：振り幅20cmで3yd）'
+      : m.source === 'single' ? '登録済み：1点（' + m.points[0].cm + 'cm で平均 ' + m.points[0].meanYd.toFixed(1) + 'yd）'
+        : '登録済み：' + m.points.length + '点の距離曲線';
+    $('cal-status').innerHTML = head + '<small>いまのグリーンの速さ（' + state.stimp.toFixed(1) + 'ft）での目安：' + guide + '</small>';
+    $('cal-clear').disabled = !state.cal.length;
+  }
+  function fillCalInputs() {
+    CAL_CM.forEach(function (cm) {
+      var pt = state.cal.filter(function (p) { return p.cm === cm; })[0];
+      [0, 1, 2].forEach(function (i) { $('cal-' + cm + '-' + i).value = pt && pt.yd[i] != null ? pt.yd[i] : ''; });
+    });
+    renderCalAvg();
+  }
+  function saveCal() {
+    var rows = calInputs().filter(function (r) { return r.yd.length; });
+    if (!rows.length) { toast('距離が入力されていません。少なくとも1つの振り幅に、転がった距離を入力してください。'); return; }
+    state.cal = rows.map(function (r) {
+      // 距離を変えていない行は、測ったときのグリーンの速さをそのまま残す
+      var old = state.cal.filter(function (p) { return p.cm === r.cm; })[0];
+      var same = old && JSON.stringify(old.yd) === JSON.stringify(r.yd);
+      return { cm: r.cm, yd: r.yd, stimp: same ? old.stimp : state.stimp };
+    });
+    if (!shared.set('cal', state.cal)) toast('このブラウザでは保存できませんでした。登録は画面を閉じると消えます。');
+    else toast('キャリブレーションを保存しました（' + rows.length + '点）。');
+    renderSettings(); renderAll();
+  }
+
+  /** PUTT LAB 側（または別のタブ）で設定が変わっていたら取り込む */
+  function reloadShared() {
+    var stimp = K.sanitizeStimp(shared.get('stimp', state.stimp)), cal = K.sanitizeCal(shared.get('cal', state.cal));
+    var calChanged = JSON.stringify(cal) !== JSON.stringify(state.cal);
+    if (stimp === state.stimp && !calChanged) return;
+    state.stimp = stimp; state.cal = cal;
+    if (calChanged) fillCalInputs();
+    renderSettings(); renderAll();
+  }
+
+  function openSheet(id) {
+    Metro.stop();
+    $(id).hidden = false; $(id).scrollTop = 0;
+  }
+  function setMode(m) {
+    state.mode = m === 'practice' ? 'practice' : 'find';
+    $('mode-find').setAttribute('aria-pressed', String(state.mode === 'find'));
+    $('mode-practice').setAttribute('aria-pressed', String(state.mode === 'practice'));
+    $('find-wrap').hidden = state.mode !== 'find';
+    $('practice-wrap').hidden = state.mode !== 'practice';
+    if (state.mode === 'find') renderFind(); else renderPractice();
+  }
+
+  /* =====================================================================
+     起動
+     ===================================================================== */
+  function init() {
+    $('dist-chips').innerHTML = DIST_CHIPS.map(function (v) { return '<button class="chip" type="button" data-v="' + v + '" aria-pressed="false">' + v + '<small>yd</small></button>'; }).join('');
+    $('pr-ranges').innerHTML = K.RANGES.map(function (r) { return '<button class="chip" type="button" data-v="' + r.key + '" aria-pressed="false">' + r.lo + '–' + r.hi + '<small>' + r.name + '</small></button>'; }).join('');
+    $('stimp-chips').innerHTML = STIMPS.map(function (v) { return '<button class="chip" type="button" data-v="' + v[0] + '" aria-pressed="false">' + v[0] + '<small>' + v[1] + '</small></button>'; }).join('');
+    var g = '<span class="hd">振り幅</span><span class="hd">1球目</span><span class="hd">2球目</span><span class="hd">3球目</span><span class="hd">平均</span>';
+    CAL_CM.forEach(function (cm) {
+      g += '<span class="cm">' + cm + '<small>cm</small></span>';
+      [0, 1, 2].forEach(function (i) { g += '<input id="cal-' + cm + '-' + i + '" type="number" inputmode="decimal" min="0" max="60" step="0.1" placeholder="yd" aria-label="振り幅' + cm + 'cm ' + (i + 1) + '球目の距離（ヤード）">'; });
+      g += '<span class="avg" id="cal-avg-' + cm + '">—</span>';
+    });
+    $('cal-grid').innerHTML = g;
+    $('ver').textContent = 'KYORI LAB v' + VERSION;
+    if (!canStore) $('store-note').textContent = 'このブラウザでは保存が使えないため、記録と設定は画面を閉じると消えます（プライベートブラウズなど）。';
+
+    // モード
+    $('mode-find').addEventListener('click', function () { setMode('find'); });
+    $('mode-practice').addEventListener('click', function () { setMode('practice'); });
+    // 振り幅を調べる
+    $('dist-minus').addEventListener('click', function () { setDist(state.dist - 0.5); });
+    $('dist-plus').addEventListener('click', function () { setDist(state.dist + 0.5); });
+    $('dist-num').addEventListener('input', function () { var v = parseFloat(this.value); if (v >= K.DIST_MIN && v <= K.DIST_MAX) setDist(v, 'num'); });
+    $('dist-num').addEventListener('change', function () { var v = parseFloat(this.value); setDist(isFinite(v) ? v : state.dist); });
+    $('dist-range').addEventListener('input', function () { setDist(+this.value, 'range'); });
+    $('dist-chips').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setDist(+b.dataset.v); });
+    $('st-register').addEventListener('click', function () { fillCalInputs(); renderSettings(); openSheet('sheet-settings'); });
+    // 練習する
+    $('pr-t-minus').addEventListener('click', function () { setTarget(state.target - 0.5); });
+    $('pr-t-plus').addEventListener('click', function () { setTarget(state.target + 0.5); });
+    $('pr-ranges').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setRange(b.dataset.v); });
+    $('pr-reroll').addEventListener('click', function () { setTarget(K.nextTarget(state.range, state.target)); });
+    $('pr-a-minus').addEventListener('click', function () { stepActual(-0.5); });
+    $('pr-a-plus').addEventListener('click', function () { stepActual(0.5); });
+    $('pr-just').addEventListener('click', function () { $('pr-actual').value = numTxt(state.target); });
+    $('pr-save').addEventListener('click', recordShot);
+    $('pr-actual').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); recordShot(); } });
+    $('pr-next').addEventListener('click', nextShot);
+    $('pr-undo').addEventListener('click', undoShot);
+    // メトロノーム
+    function toggleMetro() { if (Metro.playing) Metro.stop(); else Metro.start(); }
+    $('metro-btn').addEventListener('click', toggleMetro);
+    $('pr-metro').addEventListener('click', toggleMetro);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) Metro.stop(); else reloadShared(); });
+    window.addEventListener('pageshow', reloadShared);
+    window.addEventListener('storage', function (e) { if (!e.key || e.key.indexOf('ggpl.') === 0) reloadShared(); });
+    // 設定
+    $('mn-settings').addEventListener('click', function () { fillCalInputs(); renderSettings(); openSheet('sheet-settings'); });
+    $('set-close').addEventListener('click', function () { $('sheet-settings').hidden = true; });
+    $('stimp-chips').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setStimp(+b.dataset.v); });
+    $('stimp-range').addEventListener('input', function () { setStimp(+this.value); });
+    $('cal-grid').addEventListener('input', renderCalAvg);
+    $('cal-save').addEventListener('click', saveCal);
+    $('cal-clear').addEventListener('click', function () {
+      var btn = this;
+      armed(btn, 'もう一度押すと消えます', function () {
+        state.cal = []; shared.set('cal', []); fillCalInputs(); renderSettings(); renderAll();
+        toast('登録を消しました。仮の基準に戻ります。');
+      });
+    });
+    // 記録
+    $('log-open').addEventListener('click', function () { state.listShown = 30; renderLog(); openSheet('sheet-log'); });
+    $('lg-close').addEventListener('click', function () { $('sheet-log').hidden = true; });
+    $('lg-chart').addEventListener('click', function (e) { var b = e.target.closest('.bar'); if (b) chartTip(K.stats(state.log), +b.dataset.i); });
+    $('lg-list').addEventListener('click', function (e) {
+      var b = e.target.closest('.del'); if (!b) return;
+      armed(b, '消す', function () { deleteEntry(+b.dataset.t); });
+    });
+    $('lg-more').addEventListener('click', function () { state.listShown += 50; renderList(); });
+    $('lg-clear').addEventListener('click', function () {
+      var btn = this;
+      armed(btn, 'もう一度押すと ' + state.log.length + '球の記録がすべて消えます', function () {
+        state.log = []; state.last = null; state.phase = 'input'; saveLog();
+        renderLog(); renderLogSummary(); renderPractice();
+        toast('記録をすべて消しました。');
+      });
+    });
+
+    $('dist-num').value = numTxt(state.dist); $('dist-range').value = state.dist;
+    renderPractice(); renderLogSummary(); setMode('find');
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

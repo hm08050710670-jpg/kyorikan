@@ -1,0 +1,200 @@
+<div id="app">
+  <section class="screen" id="scr-main">
+    <div class="topbar">
+      <header class="brand">GOLF GUTS <b>KYORI LAB</b></header>
+      <button class="icon-btn" id="mn-settings" type="button" aria-label="グリーンの速さと振り幅の登録を開く">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
+      </button>
+    </div>
+
+    <div class="seg" role="group" aria-label="モードの切り替え">
+      <button id="mode-find" type="button" aria-pressed="true">振り幅を調べる</button>
+      <button id="mode-practice" type="button" aria-pressed="false">練習する</button>
+    </div>
+
+    <!-- ===== 振り幅を調べる ===== -->
+    <div class="mode" id="find-wrap">
+      <h1 class="h-big">打ちたい距離は？</h1>
+
+      <section class="block" aria-labelledby="h-dist">
+        <h3 id="h-dist">ボールを転がす距離<span id="dist-m"></span></h3>
+        <div class="dist-row">
+          <button class="step-btn" id="dist-minus" type="button" aria-label="0.5ヤード短く">−</button>
+          <div class="dist-field">
+            <input id="dist-num" type="number" inputmode="decimal" min="0.5" max="20" step="0.5" value="3" aria-labelledby="h-dist">
+            <span class="unit">yd</span>
+          </div>
+          <button class="step-btn" id="dist-plus" type="button" aria-label="0.5ヤード長く">＋</button>
+        </div>
+        <input id="dist-range" type="range" min="0.5" max="20" step="0.5" value="3" aria-labelledby="h-dist">
+        <div class="chips" id="dist-chips" role="group" aria-label="よく使う距離"></div>
+      </section>
+
+      <section class="block" aria-labelledby="h-stroke" id="stroke-block">
+        <h3 id="h-stroke">必要な振り幅<span>アドレス → トップ</span></h3>
+        <div class="stroke-num answer" aria-live="polite">
+          <b id="st-cm">–</b><span class="unit">cm</span>
+          <span class="sub" id="st-sub"></span>
+        </div>
+        <div class="stroke-rows" id="stroke-view"></div>
+        <div id="st-warn"></div>
+        <p class="note" id="st-note"></p>
+        <button class="btn-ghost pri" id="st-register" type="button" hidden>自分の距離感を登録する</button>
+      </section>
+    </div>
+
+    <!-- ===== 練習する ===== -->
+    <div class="mode" id="practice-wrap" hidden>
+      <section class="block" aria-labelledby="h-target" id="pr-block">
+        <h3 id="h-target">① お題の距離を打つ<span id="pr-m"></span></h3>
+        <div class="dist-row">
+          <button class="step-btn" id="pr-t-minus" type="button" aria-label="お題を0.5ヤード短く">−</button>
+          <div class="dist-field">
+            <b class="num" id="pr-target" aria-live="polite">–</b>
+            <span class="unit">yd</span>
+          </div>
+          <button class="step-btn" id="pr-t-plus" type="button" aria-label="お題を0.5ヤード長く">＋</button>
+        </div>
+        <div class="chips four" id="pr-ranges" role="group" aria-label="お題の距離の範囲"></div>
+        <div class="pr-stroke">
+          <div class="pr-stroke-num"><span>必要な振り幅</span><p><b id="pr-cm">–</b><i>cm</i></p></div>
+          <ul class="pr-items" id="pr-items"></ul>
+        </div>
+        <div id="pr-warn"></div>
+        <p class="note" id="pr-note" hidden>仮の基準で表示しています。右上のボタンから自分の距離感を登録すると、あなたに合った振り幅になります。</p>
+        <div class="row2">
+          <button class="btn-ghost" id="pr-reroll" type="button">別のお題にする</button>
+          <button class="btn-ghost" id="pr-metro" type="button" aria-pressed="false" aria-label="メトロノームを再生する">メトロノーム ▶</button>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-actual" id="pr-input-block">
+        <h3 id="h-actual">② 転がった距離を入力<span>実測</span></h3>
+        <div class="dist-row">
+          <button class="step-btn" id="pr-a-minus" type="button" aria-label="0.5ヤード短く">−</button>
+          <div class="dist-field">
+            <input id="pr-actual" type="number" inputmode="decimal" min="0.1" max="60" step="0.1" placeholder="?" aria-labelledby="h-actual">
+            <span class="unit">yd</span>
+          </div>
+          <button class="step-btn" id="pr-a-plus" type="button" aria-label="0.5ヤード長く">＋</button>
+        </div>
+        <button class="btn-text" id="pr-just" type="button">お題どおりに止まった</button>
+        <button class="btn-volt" id="pr-save" type="button">ズレを見て記録する <span class="arr" aria-hidden="true">→</span></button>
+      </section>
+
+      <section class="block" id="pr-result" hidden aria-live="polite">
+        <h3>③ 結果<span>記録しました</span></h3>
+        <div class="verdict" id="pr-verdict"></div>
+        <button class="btn-volt" id="pr-next" type="button">次のお題へ <span class="arr" aria-hidden="true">→</span></button>
+        <button class="btn-text" id="pr-undo" type="button">この記録を取り消して入力し直す</button>
+      </section>
+    </div>
+
+    <!-- ===== 共通：メトロノーム ===== -->
+    <section class="block" aria-labelledby="h-metro" id="metro-block">
+      <h3 id="h-metro">メトロノーム<span>90 BPM・3/4</span></h3>
+      <div class="metro-stage" id="metro-stage" aria-hidden="true"></div>
+      <div class="beats" id="beats" aria-hidden="true"><span>1</span><span>2</span><span>3</span></div>
+      <div class="phases" id="phases" aria-hidden="true">
+        <span><small>1拍目</small>始動</span>
+        <span><small>2拍目</small>トップ</span>
+        <span class="impact"><small>2.5拍</small>インパクト</span>
+        <span><small>3拍目</small>フォロー</span>
+      </div>
+      <button class="btn-volt" id="metro-btn" type="button" aria-pressed="false">再生する</button>
+      <p class="note">1拍目で引き始め、2拍目でトップ、2拍目と3拍目のちょうど真ん中で打ちます。音が出ないときは、スマホの消音モードと音量を確認してください。</p>
+    </section>
+
+    <!-- ===== 共通：記録 ===== -->
+    <section class="block" aria-labelledby="h-log" id="log-block">
+      <h3 id="h-log">練習の記録<span id="log-count"></span></h3>
+      <div class="status" id="log-summary"></div>
+      <button class="btn-ghost" id="log-open" type="button">記録と上達を見る</button>
+    </section>
+
+    <p class="note foot">表示はすべて推定値です。平坦なグリーンでボールが止まるまでの距離を、登録した振り幅と距離の関係から計算しており、傾斜・芝目・打ち方のばらつきによる誤差は含まれません。傾斜のあるラインは GOLF GUTS PUTT LAB で確認してください。<span id="store-note"></span><span class="ver" id="ver"></span></p>
+  </section>
+</div>
+
+<!-- 設定（グリーンの速さ・振り幅の登録） -->
+<div class="sheet" id="sheet-settings" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="sheet-in">
+    <div class="sheet-head">
+      <h2 id="set-title">距離感の登録</h2>
+      <button class="icon-btn" id="set-close" type="button" aria-label="登録を閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <p>ここの設定は GOLF GUTS PUTT LAB と共通です。同じブラウザで開いている場合、どちらで変えても両方に反映されます。</p>
+
+    <section class="block">
+      <h3 class="sec">グリーンの速さ</h3>
+      <p>スティンプメーターの値（ft）です。コースの掲示があればその数字に合わせてください。速いほど、振り幅は小さくなります。</p>
+      <div class="chips four" id="stimp-chips" role="group" aria-label="グリーンの速さ"></div>
+      <div>
+        <div class="field-head"><label for="stimp-range">細かく調整</label><output id="stimp-out" for="stimp-range"></output></div>
+        <input id="stimp-range" type="range" min="7" max="13" step="0.5" value="9">
+      </div>
+    </section>
+
+    <section class="block">
+      <h3 class="sec">振り幅のキャリブレーション</h3>
+      <p>あなたの「振り幅と転がる距離」を登録すると、必要な振り幅があなたの距離感に合います。</p>
+      <ol class="how">
+        <li>平坦な練習グリーンで、上の「グリーンの速さ」をその場所に合わせる</li>
+        <li>メトロノーム（90 BPM・3/4拍子）に合わせて、決めた振り幅で3球打つ</li>
+        <li>転がった距離（yd）を入力して保存する</li>
+      </ol>
+      <div class="cal-grid" id="cal-grid"></div>
+      <p class="note">1つの振り幅だけでも登録できます。10・20・30cm の複数を登録すると、あなた専用の距離曲線になり精度が上がります。</p>
+      <div class="status" id="cal-status"></div>
+      <div class="row2">
+        <button class="btn-ghost" id="cal-clear" type="button">登録を消す</button>
+        <button class="btn-ghost pri" id="cal-save" type="button">保存する</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 記録と上達 -->
+<div class="sheet" id="sheet-log" hidden role="dialog" aria-modal="true" aria-labelledby="lg-title">
+  <div class="sheet-in">
+    <div class="sheet-head">
+      <h2 id="lg-title">練習の記録</h2>
+      <button class="icon-btn" id="lg-close" type="button" aria-label="記録を閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div id="lg-empty" class="status" hidden>まだ記録がありません<small>「練習する」でお題の距離を打ち、転がった距離を入力すると、ここにズレが記録されます。</small></div>
+
+    <div id="lg-body">
+      <section class="block">
+        <h3 class="sec">上達のようす</h3>
+        <p>ズレは「お題の距離に対して何％ずれたか」です。小さいほど距離感が合っています。10％以内が合格圏の目安です。</p>
+        <div class="tiles" id="lg-tiles"></div>
+        <div id="lg-advice"></div>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">10球ごとの平均ズレ</h3>
+        <div class="chart" id="lg-chart"></div>
+        <div class="status" id="lg-tip"></div>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">距離ごとの傾向</h3>
+        <div class="bands" id="lg-bands"></div>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">記録の一覧</h3>
+        <div class="log-list" id="lg-list"></div>
+        <button class="btn-ghost" id="lg-more" type="button" hidden>さらに表示する</button>
+      </section>
+
+      <section class="block">
+        <h3 class="sec">記録を消す</h3>
+        <p>記録はこのスマホの中だけに保存されています。消すと元に戻せません。</p>
+        <button class="btn-ghost" id="lg-clear" type="button">すべての記録を消す</button>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>

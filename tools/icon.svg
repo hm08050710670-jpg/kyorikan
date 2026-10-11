@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a2417"/>
+  <!-- 芝の地面 -->
+  <rect x="0" y="330" width="512" height="182" fill="#0f3321"/>
+  <line x1="0" y1="330" x2="512" y2="330" stroke="#2f7d52" stroke-width="8"/>
+  <!-- 止めたい位置（蛍光イエローの的） -->
+  <circle cx="372" cy="268" r="52" fill="none" stroke="#e4ff1a" stroke-width="14"/>
+  <circle cx="372" cy="268" r="20" fill="#e4ff1a"/>
+  <!-- ボールと転がる距離 -->
+  <circle cx="140" cy="290" r="38" fill="#f3f7ee"/>
+  <path d="M204 290H300" stroke="#f3f7ee" stroke-width="12" stroke-linecap="round" stroke-dasharray="2 26"/>
+  <!-- 距離の目盛り -->
+  <path d="M140 392H372" stroke="#e4ff1a" stroke-width="12" stroke-linecap="round"/>
+  <path d="M140 372V412M372 372V412" stroke="#e4ff1a" stroke-width="12" stroke-linecap="round"/>
+  <path d="M198 380V404M256 380V404M314 380V404" stroke="#e4ff1a" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+</svg>
