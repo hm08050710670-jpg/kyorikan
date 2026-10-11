@@ -8,11 +8,12 @@ root = pathlib.Path(__file__).parent
 src = lambda n: (root / 'src' / n).read_text(encoding='utf-8')
 TITLE = 'GOLF GUTS KYORI LAB'
 FONTS = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">'
-page = ('<title>' + TITLE + '</title>\n' + FONTS + '\n<style>\n' + src('style.css') + '</style>\n\n'
-        + src('body.html') + '\n<script>\n' + src('physics.js') + '</script>\n<script>\n' + src('kyori.js')
+# top … タイトル・フォント・デザイン（index.html では <head> の中に入れる） / rest … 画面とプログラム
+top = '<title>' + TITLE + '</title>\n' + FONTS + '\n<style>\n' + src('style.css') + '</style>\n'
+rest = (src('body.html') + '\n<script>\n' + src('physics.js') + '</script>\n<script>\n' + src('kyori.js')
         + '</script>\n<script>\n' + src('app.js') + '</script>\n')
 (root / 'dist').mkdir(exist_ok=True)
-(root / 'dist' / 'artifact.html').write_text(page, encoding='utf-8')
+(root / 'dist' / 'artifact.html').write_text(top + '\n' + rest, encoding='utf-8')
 head = ('<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
         '<meta name="description" content="パッティングの距離感をつくる練習アプリ。打ちたい距離から必要な振り幅を表示し、練習のズレを記録します。">\n'
@@ -26,6 +27,6 @@ head = ('<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n'
         '<link rel="apple-touch-icon" href="icon-180.png">\n'
         '<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">\n'
         '<style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}'
-        'body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>\n</head>\n<body>\n')
-(root / 'index.html').write_text(head + page + '</body>\n</html>\n', encoding='utf-8')
+        'body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>\n')
+(root / 'index.html').write_text(head + top + '</head>\n<body>\n' + rest + '</body>\n</html>\n', encoding='utf-8')
 print('built index.html', (root / 'index.html').stat().st_size, 'bytes')
